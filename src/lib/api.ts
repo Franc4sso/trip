@@ -115,6 +115,32 @@ export function useTripEvents(tripId: number) {
     });
 }
 
+export interface Poll {
+    id: number;
+    question: string;
+    closed: boolean;
+    created_by: string | null;
+    created_at: string;
+    poll_options: { id: number; label: string; activity_id: number | null; position: number }[];
+    poll_votes: { option_id: number; user_id: string }[];
+}
+
+export function usePolls(tripId: number) {
+    return useQuery({
+        queryKey: ['polls', tripId],
+        queryFn: async () => {
+            const polls = await must<Poll[]>(
+                supabase
+                    .from('polls')
+                    .select('id, question, closed, created_by, created_at, poll_options(id, label, activity_id, position), poll_votes(option_id, user_id)')
+                    .eq('trip_id', tripId)
+                    .order('created_at', { ascending: false }),
+            );
+            return polls.map((p) => ({ ...p, poll_options: [...p.poll_options].sort((a, b) => a.position - b.position || a.id - b.id) }));
+        },
+    });
+}
+
 /** Refetches the trip whenever a travel mate changes its activities, stays or members. */
 export function useTripRealtime(id: number) {
     const queryClient = useQueryClient();
@@ -132,7 +158,10 @@ export function useTripRealtime(id: number) {
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_members', filter }, refresh)
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trip_events', filter }, () =>
                     queryClient.invalidateQueries({ queryKey: ['events', id] }),
-                ),
+                )
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'polls', filter }, () => queryClient.invalidateQueries({ queryKey: ['polls', id] }))
+                // votes have no trip_id: RLS limits them to trips we are in, refetch ours
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes' }, () => queryClient.invalidateQueries({ queryKey: ['polls', id] })),
         );
     }, [id, queryClient]);
 }
@@ -172,4 +201,21 @@ export const api = {
     inviteToken: (tripId: number) => must<string>(supabase.rpc('get_invite_token', { p_trip: tripId })),
     regenerateInvite: (tripId: number) => must<string>(supabase.rpc('regenerate_invite', { p_trip: tripId })),
     joinTrip: (token: string) => must<number>(supabase.rpc('join_trip', { p_token: token })),
+
+    createPoll: async (tripId: number, question: string, options: { label: string; activity_id: number | null }[]) => {
+        const poll = await must<{ id: number }>(supabase.from('polls').insert({ trip_id: tripId, question }).select('id').single());
+        const { error } = await supabase.from('poll_options').insert(options.map((o, position) => ({ ...o, poll_id: poll.id, position })));
+        if (error) {
+            await supabase.from('polls').delete().eq('id', poll.id); // no half-made polls
+            throw error;
+        }
+    },
+    // no upsert: it would also rewrite poll_id, and only option_id may change
+    vote: (pollId: number, optionId: number, userId: string, changing: boolean) =>
+        changing
+            ? mustTouch(supabase.from('poll_votes').update({ option_id: optionId }).eq('poll_id', pollId).eq('user_id', userId).select('poll_id'))
+            : must(supabase.from('poll_votes').insert({ poll_id: pollId, option_id: optionId })),
+    unvote: (pollId: number, userId: string) => must(supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('user_id', userId)),
+    closePoll: (pollId: number) => mustTouch(supabase.from('polls').update({ closed: true }).eq('id', pollId).select('id')),
+    deletePoll: (pollId: number) => mustTouch(supabase.from('polls').delete().eq('id', pollId).select('id')),
 };

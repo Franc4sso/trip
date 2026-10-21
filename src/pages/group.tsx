@@ -1,5 +1,6 @@
 import { WithTrip } from '@/components/states';
 import TripLayout from '@/components/trip-layout';
+import { Polls } from '@/components/polls';
 import { Card, FormError } from '@/components/ui';
 import { api, useTripEvents, type TripEvent } from '@/lib/api';
 import { useUser } from '@/lib/auth';
@@ -145,6 +146,8 @@ function Group({ trip, activities }: { trip: TripHeader; activities: Activity[] 
             ) : (
                 <p className="mt-3 text-[13px] text-mute">Per invitare qualcuno chiedi il link a un organizzatore.</p>
             )}
+
+            <Polls trip={trip} ideas={activities.filter((a) => !a.date)} />
 
             <section className="mt-6">
                 <h2 className="mb-1 text-sm font-extrabold">Ultime modifiche</h2>

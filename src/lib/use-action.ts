@@ -22,7 +22,7 @@ export function useAction() {
             setError(null);
             try {
                 await write();
-                await queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'trip' || q.queryKey[0] === 'trips' });
+                await queryClient.invalidateQueries({ predicate: (q) => ['trip', 'trips', 'polls', 'events'].includes(String(q.queryKey[0])) });
                 return true;
             } catch (e) {
                 setError(errorMessage(e));
