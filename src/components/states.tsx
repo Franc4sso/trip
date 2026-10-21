@@ -1,5 +1,6 @@
 import { useTrip, useTripRealtime, type TripData } from '@/lib/api';
 import { paths } from '@/lib/paths';
+import { TripPresence } from '@/lib/presence';
 import { errorMessage } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 import { type ReactNode } from 'react';
@@ -36,5 +37,5 @@ export function WithTrip({ children }: { children: (data: TripData) => ReactNode
         const notFound = (query.error as { code?: string }).code === 'PGRST116';
         return <ErrorScreen message={notFound ? 'Il viaggio non esiste o non ne fai più parte.' : errorMessage(query.error)} />;
     }
-    return <>{children(query.data)}</>;
+    return <TripPresence tripId={id}>{children(query.data)}</TripPresence>;
 }

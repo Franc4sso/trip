@@ -3,6 +3,7 @@ import { PlaceInput } from '@/components/place-input';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
 import { type Coordinates } from '@/lib/places';
+import { useFocus, usePeersOn } from '@/lib/presence';
 import { ACTIVITY_TYPES, formatDayMonth, formatWeekdayShort, type Activity, type ActivityType, type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,8 @@ const DURATIONS = [30, 60, 90, 120, 180, 240, 360];
 export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft, near, city }: Props) {
     const [data, setData] = useState(initial);
     const { run, pending, error, clearError } = useAction();
+    useFocus(open, activity ? { kind: 'activity', id: activity.id } : { kind: 'new-activity', date: draft?.date ?? null });
+    const alsoEditing = usePeersOn((f) => !!activity && f?.kind === 'activity' && f.id === activity.id);
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
 
     function initial() {
@@ -101,6 +104,11 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
         >
             <form id="activity-form" onSubmit={submit} className="flex flex-col gap-4">
                 <FormError message={error} />
+                {alsoEditing.length > 0 && (
+                    <p role="status" className="rounded-xl bg-leaf-soft px-3 py-2 text-[13px] font-semibold text-leaf">
+                        Anche {alsoEditing.join(', ')} sta modificando questa attività: salva per ultimo chi ha le informazioni giuste.
+                    </p>
+                )}
                 <fieldset>
                     <legend className="sr-only">Tipo</legend>
                     <div className="flex flex-wrap gap-2">

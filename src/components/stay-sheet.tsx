@@ -3,6 +3,7 @@ import { PlaceInput } from '@/components/place-input';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
 import { type Stay, type TripHeader } from '@/lib/trip';
+import { useFocus } from '@/lib/presence';
 import { useAction } from '@/lib/use-action';
 import { type FormEvent, useEffect, useState } from 'react';
 
@@ -18,6 +19,7 @@ interface Props {
 export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
     const [data, setData] = useState(initial);
     const { run, pending, error, clearError } = useAction();
+    useFocus(open, { kind: 'stay', id: stay?.id ?? null });
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
 
     function initial() {

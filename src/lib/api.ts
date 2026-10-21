@@ -95,6 +95,25 @@ export function useTrip(id: number) {
     });
 }
 
+export interface TripEvent {
+    id: number;
+    actor: string | null;
+    action: 'added' | 'updated' | 'deleted' | 'booked' | 'joined' | 'left' | 'role';
+    entity: 'activity' | 'stay' | 'member';
+    label: string;
+    created_at: string;
+}
+
+export function useTripEvents(tripId: number) {
+    return useQuery({
+        queryKey: ['events', tripId],
+        queryFn: () =>
+            must<TripEvent[]>(
+                supabase.from('trip_events').select('id, actor, action, entity, label, created_at').eq('trip_id', tripId).order('id', { ascending: false }).limit(30),
+            ),
+    });
+}
+
 /** Refetches the trip whenever a travel mate changes its activities, stays or members. */
 export function useTripRealtime(id: number) {
     const queryClient = useQueryClient();
@@ -110,6 +129,9 @@ export function useTripRealtime(id: number) {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'activities', filter }, refresh)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'stays', filter }, refresh)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_members', filter }, refresh)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trip_events', filter }, () =>
+                queryClient.invalidateQueries({ queryKey: ['events', id] }),
+            )
             .subscribe();
 
         return () => {

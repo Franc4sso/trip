@@ -70,3 +70,6 @@ select t.id, a.* from t, (values
     (null, null, 90, 'food', 'Nishiki Market', 'Kyoto', null, false, null, false),
     (null, null, 120, 'experience', 'Ghibli Museum', 'Tokyo', 1000, true, null, false)
 ) as a;
+
+-- the demo rows above were inserted without a signed-in user: start with a clean feed
+delete from public.trip_events;

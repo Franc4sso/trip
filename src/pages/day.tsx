@@ -2,6 +2,7 @@ import { WithTrip } from '@/components/states';
 import { api } from '@/lib/api';
 import { computeInsights } from '@/lib/insights';
 import { paths } from '@/lib/paths';
+import { namesSentence, usePeersOn } from '@/lib/presence';
 import { useAction } from '@/lib/use-action';
 import { Navigate, useParams } from 'react-router';
 import { ActivitySheet, type ActivityDraft } from '@/components/activity-sheet';
@@ -63,6 +64,7 @@ export default function DayRoute() {
 
 function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
     const { run, error } = useAction();
+    const adding = usePeersOn((f) => f?.kind === 'new-activity' && f.date === day.date);
     const [sheet, setSheet] = useState<{ open: boolean; activity?: Activity | null; draft?: ActivityDraft }>({ open: false });
     const index = days.findIndex((d) => d.date === day.date);
     const prev = days[index - 1];
@@ -126,6 +128,13 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
             </div>
 
             {error && <p role="alert" className="mt-3 rounded-xl bg-verm-soft px-3 py-2 text-center text-[13px] font-semibold text-verm-ink">{error}</p>}
+
+            {adding.length > 0 && (
+                <p role="status" className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-leaf-soft px-3 py-2 text-[13px] font-semibold text-leaf">
+                    <span className="size-2 animate-pulse rounded-full bg-[#1FA463]" aria-hidden="true" />
+                    {namesSentence(adding)} {adding.length === 1 ? 'sta aggiungendo' : 'stanno aggiungendo'} qualcosa a questo giorno
+                </p>
+            )}
 
             {day.load === 'full' && (
                 <p className="mt-3 rounded-2xl bg-verm-soft px-4 py-2.5 text-center text-[13px] font-semibold text-verm-ink">
@@ -232,6 +241,7 @@ function fitting(ideas: Activity[], gap: Gap, city: string | null): Activity[] {
 }
 
 function ActivityCard({ activity: a, onOpen, editable }: { activity: Activity; onOpen: () => void; editable: boolean }) {
+    const editors = usePeersOn((f) => f?.kind === 'activity' && f.id === a.id);
     const meta = ACTIVITY_TYPES[a.type];
     const Icon = meta.icon;
     const deadline = deadlineLabel(a.booking_deadline);
@@ -240,7 +250,10 @@ function ActivityCard({ activity: a, onOpen, editable }: { activity: Activity; o
         <button
             onClick={onOpen}
             disabled={!editable}
-            className="flex flex-1 gap-2.5 rounded-2xl border border-line bg-card px-3 py-2.5 text-left enabled:hover:bg-hover disabled:cursor-default"
+            className={cn(
+                'flex flex-1 gap-2.5 rounded-2xl border bg-card px-3 py-2.5 text-left enabled:hover:bg-hover disabled:cursor-default',
+                editors.length > 0 ? 'border-leaf ring-2 ring-leaf-soft' : 'border-line',
+            )}
         >
             <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-[10px]', meta.tint)} aria-hidden="true">
                 <Icon className="size-[18px]" />
@@ -252,6 +265,11 @@ function ActivityCard({ activity: a, onOpen, editable }: { activity: Activity; o
                         .filter(Boolean)
                         .join(' · ')}
                 </span>
+                {editors.length > 0 && (
+                    <span className="mt-1.5 block">
+                        <Chip className="bg-leaf text-paper">{namesSentence(editors)} sta modificando</Chip>
+                    </span>
+                )}
                 {a.booking_required && (
                     <span className="mt-1.5 block">
                         {a.booked ? (

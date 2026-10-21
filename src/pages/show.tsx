@@ -1,6 +1,7 @@
 import { WithTrip } from '@/components/states';
 import { computeInsights, nightsOf } from '@/lib/insights';
 import { paths } from '@/lib/paths';
+import { namesSentence, usePresence } from '@/lib/presence';
 import { StaySheet } from '@/components/stay-sheet';
 import { AvatarStack, Card, Chip, IconLink, SectionTitle } from '@/components/ui';
 import TripLayout from '@/components/trip-layout';
@@ -35,6 +36,8 @@ interface Props {
 }
 
 function TripShow({ trip, insights, stays }: Props) {
+    const { peers } = usePresence();
+    const online = new Set(peers.keys());
     const [staySheet, setStaySheet] = useState<{ open: boolean; stay?: Stay | null; checkIn?: string }>({ open: false });
     const gapCount = insights.days.reduce((n, d) => n + d.gaps.length, 0);
     const firstPending = insights.pending_bookings[0];
@@ -47,7 +50,7 @@ function TripShow({ trip, insights, stays }: Props) {
                         <ChevronLeft className="size-5" aria-hidden="true" />
                     </IconLink>
                     <div className="flex items-center gap-2.5">
-                        <AvatarStack members={trip.members} />
+                        <AvatarStack members={trip.members} online={online} />
                         <IconLink label="Invita amici" to={paths.group(trip.id)}>
                             <UserPlus className="size-5" aria-hidden="true" />
                         </IconLink>
@@ -64,6 +67,12 @@ function TripShow({ trip, insights, stays }: Props) {
                     <p className="mt-0.5 text-sm text-mute">
                         {formatRange(trip.start_date, trip.end_date)} · {tripLength(trip)} giorni · {countdown(trip)}
                     </p>
+                    {peers.size > 0 && (
+                        <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-leaf-soft px-2.5 py-1 text-xs font-bold text-leaf">
+                            <span className="size-2 rounded-full bg-[#1FA463]" aria-hidden="true" />
+                            {namesSentence([...peers.values()].map((p) => p.name.split(' ')[0]))} {peers.size === 1 ? 'è qui' : 'sono qui'}
+                        </p>
+                    )}
                 </header>
 
                 <Card>

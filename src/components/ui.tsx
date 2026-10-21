@@ -3,20 +3,24 @@ import { cn } from '@/lib/utils';
 import { Link } from 'react-router';
 import { type ComponentProps, type ReactNode } from 'react';
 
-export function AvatarStack({ members, ring = 'ring-paper', max = 4 }: { members: Member[]; ring?: string; max?: number }) {
-    const shown = members.slice(0, max);
+export function AvatarStack({ members, ring = 'ring-paper', max = 4, online }: { members: Member[]; ring?: string; max?: number; online?: Set<string> }) {
+    // colours follow the member's position in the trip; online people come first
+    const indexed = members.map((m, i) => ({ m, i }));
+    const ordered = online ? [...indexed.filter((x) => online.has(x.m.id)), ...indexed.filter((x) => !online.has(x.m.id))] : indexed;
+    const shown = ordered.slice(0, max);
     const extra = members.length - shown.length;
+    const label = members.map((m) => (online?.has(m.id) ? `${m.name} (online)` : m.name)).join(', ');
 
     return (
-        <div className="flex pl-2" aria-label={members.map((m) => m.name).join(', ')}>
-            {shown.map((m, i) => (
+        <div className="flex pl-2" role="img" aria-label={label}>
+            {shown.map(({ m, i }) => (
                 <span
                     key={m.id}
-                    aria-hidden="true"
-                    className={cn('-ml-2 flex size-7 items-center justify-center rounded-full text-[11px] font-bold text-white ring-2', ring)}
+                    className={cn('relative -ml-2 flex size-7 items-center justify-center rounded-full text-[11px] font-bold text-white ring-2', ring)}
                     style={{ background: avatarColor(i) }}
                 >
                     {initials(m.name)}
+                    {online?.has(m.id) && <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-[#1FA463] ring-2 ring-paper" />}
                 </span>
             ))}
             {extra > 0 && (
