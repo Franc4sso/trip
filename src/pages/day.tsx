@@ -200,7 +200,7 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 <button
                     onClick={() => openNew()}
                     aria-label="Aggiungi attività"
-                    className="fixed right-5 bottom-[calc(max(env(safe-area-inset-bottom),0.75rem)+80px)] z-20 flex size-[58px] items-center justify-center rounded-[20px] bg-indigo text-white shadow-[0_10px_24px_rgba(47,67,201,0.35)] transition-transform active:scale-95 sm:right-[calc(50%-14rem+1.25rem)]"
+                    className="fixed right-5 bottom-[calc(max(env(safe-area-inset-bottom),0.75rem)+80px+var(--badge-space))] z-20 flex size-[58px] items-center justify-center rounded-[20px] bg-indigo text-white shadow-[0_10px_24px_rgba(47,67,201,0.35)] transition-transform active:scale-95 sm:right-[calc(50%-14rem+1.25rem)]"
                 >
                     <Plus className="size-6" aria-hidden="true" />
                 </button>

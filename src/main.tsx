@@ -6,6 +6,7 @@ import { Splash } from './components/states';
 import { AuthProvider, useAuth } from './lib/auth';
 import { paths } from './lib/paths';
 import './index.css';
+import { reserveSpaceForNetlifyBadge } from './lib/netlify-badge';
 import { LoginPage, RegisterPage } from './pages/auth';
 import Balance from './pages/balance';
 import Bookings from './pages/bookings';
@@ -62,6 +63,8 @@ const router = createBrowserRouter([
     },
     { path: '*', element: <Navigate to="/" replace /> },
 ]);
+
+reserveSpaceForNetlifyBadge();
 
 createRoot(document.getElementById('root')!).render(
     <StrictMode>

@@ -29,7 +29,7 @@ export function BottomSheet({ open, onOpenChange, title, subtitle, children, foo
                         </Dialog.Close>
                     </div>
                     <div className="flex-1 overflow-y-auto overscroll-contain px-5 pt-2 pb-4">{children}</div>
-                    {footer && <div className="shrink-0 border-t border-line px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)]">{footer}</div>}
+                    {footer && <div className="shrink-0 border-t border-line px-5 pt-3 pb-[calc(max(env(safe-area-inset-bottom),1rem)+var(--badge-space))]">{footer}</div>}
                 </Dialog.Content>
             </Dialog.Portal>
         </Dialog.Root>

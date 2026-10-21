@@ -33,10 +33,10 @@ export default function TripLayout({ title, trip, tab, dayHref, children }: Prop
 
     return (
         <div className="min-h-dvh bg-paper text-ink">
-            <main className={cn('mx-auto w-full max-w-md px-5 pt-[max(env(safe-area-inset-top),2.5rem)]', trip ? 'pb-32' : 'pb-12')}>{children}</main>
+            <main className={cn('mx-auto w-full max-w-md px-5 pt-[max(env(safe-area-inset-top),2.5rem)]', trip ? 'pb-[calc(8rem+var(--badge-space))]' : 'pb-[calc(3rem+var(--badge-space))]')}>{children}</main>
 
             {trip && (
-                <nav aria-label="Sezioni del viaggio" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+                <nav aria-label="Sezioni del viaggio" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white pb-[calc(max(env(safe-area-inset-bottom),0.75rem)+var(--badge-space))]">
                     <div className="mx-auto flex max-w-md justify-around pt-2">
                         {tabs.map(({ key, label, icon: Icon, href }) => (
                             <Link

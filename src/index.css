@@ -2,6 +2,11 @@
 
 @import 'tw-animate-css';
 
+:root {
+    /* height kept free for the Netlify badge, see lib/netlify-badge.ts */
+    --badge-space: 0px;
+}
+
 @theme {
     --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
 
