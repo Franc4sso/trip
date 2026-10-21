@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+
+@import 'tw-animate-css';
+
+@theme {
+    --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+
+    /* Tabi palette (mockup «Taccuino chiaro») */
+    --color-paper: #f3f2ee;
+    --color-ink: #16171b;
+    --color-line: #e3e1db;
+    --color-mute: #5f6068;
+    --color-indigo: #2f43c9;
+    --color-indigo-deep: #1f2e94;
+    --color-indigo-soft: #e6e9fb;
+    --color-verm: #c7402a;
+    --color-verm-ink: #a3311e;
+    --color-verm-soft: #fbe9e5;
+    --color-sun-line: #d9a441;
+    --color-sun-ink: #6b4600;
+    --color-sun-soft: #fbf0d9;
+    --color-leaf: #1f7a4d;
+    --color-leaf-soft: #e3f2ea;
+    --color-clay: #d9822b;
+    --color-grape: #7a4bc2;
+    --color-stone: #a3a5ac;
+}
+
+@layer base {
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+    button:not(:disabled),
+    [role='button']:not(:disabled) {
+        cursor: pointer;
+    }
+}

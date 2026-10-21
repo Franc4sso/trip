@@ -1,0 +1,14 @@
+export const paths = {
+    home: () => '/',
+    login: (next?: string) => (next ? `/login?next=${encodeURIComponent(next)}` : '/login'),
+    register: (next?: string) => (next ? `/register?next=${encodeURIComponent(next)}` : '/register'),
+    trips: () => '/trips',
+    newTrip: () => '/trips/new',
+    trip: (id: number) => `/trips/${id}`,
+    editTrip: (id: number) => `/trips/${id}/edit`,
+    day: (id: number, date: string) => `/trips/${id}/days/${date}`,
+    balance: (id: number) => `/trips/${id}/balance`,
+    bookings: (id: number) => `/trips/${id}/bookings`,
+    group: (id: number) => `/trips/${id}/group`,
+    join: (token: string) => `/join/${token}`,
+};
