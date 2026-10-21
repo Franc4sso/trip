@@ -21,6 +21,7 @@ import Welcome from './pages/welcome';
 
 // MapLibre is heavy: load the map page only when opened
 const MapPage = lazy(() => import('./pages/map'));
+const AdvicePage = lazy(() => import('./pages/advice'));
 
 const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -73,6 +74,14 @@ const router = createBrowserRouter([
                         ),
                     },
                     { path: 'bookings', element: <Bookings /> },
+                    {
+                        path: 'advice',
+                        element: (
+                            <Suspense fallback={<Splash />}>
+                                <AdvicePage />
+                            </Suspense>
+                        ),
+                    },
                     { path: 'group', element: <Group /> },
                 ],
             },

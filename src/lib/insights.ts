@@ -1,4 +1,4 @@
-import type { Activity, ActivityType, DayInsight, Gap, Insights, PendingBooking, Stay } from './trip';
+import type { Activity, ActivityType, DayInsight, Gap, Insights, PendingBooking, Stay } from './types.ts';
 
 /**
  * Reads a trip and tells what is missing: empty or overloaded days,

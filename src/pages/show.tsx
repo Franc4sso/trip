@@ -22,7 +22,7 @@ import {
 } from '@/lib/trip';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router';
-import { BedDouble, CalendarX2, ChevronLeft, Clock3, Pencil, Ticket, UserPlus } from 'lucide-react';
+import { BedDouble, CalendarX2, ChevronLeft, Clock3, Pencil, Sparkles, Ticket, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
 export default function TripShowRoute() {
@@ -76,7 +76,16 @@ function TripShow({ trip, insights, stays }: Props) {
                 </header>
 
                 <Card>
-                    <SectionTitle>Cosa manca</SectionTitle>
+                    <SectionTitle
+                        action={
+                            <Link to={paths.advice(trip.id)} className="flex items-center gap-1 text-[13px] font-bold text-indigo hover:underline">
+                                <Sparkles className="size-3.5" aria-hidden="true" />
+                                Consigli
+                            </Link>
+                        }
+                    >
+                        Cosa manca
+                    </SectionTitle>
                     <ul className="flex flex-col gap-2.5">
                         {insights.pending_bookings.length > 0 && (
                             <Todo icon={Ticket} tone="verm" href={paths.bookings(trip.id)}>
