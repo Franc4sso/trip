@@ -80,12 +80,44 @@ function* permutations(items: number[]): Generator<number[]> {
     }
 }
 
-/** Google Maps walking directions through the stops (opens the app on phones). */
-export function googleMapsUrl(stops: Coordinates[], home: Coordinates | null = null): string {
-    const fmt = (c: Coordinates) => `${c.latitude},${c.longitude}`;
-    const path = home ? [home, ...stops] : stops;
-    const params = new URLSearchParams({ api: '1', travelmode: 'walking', origin: fmt(path[0]), destination: fmt(path[path.length - 1]) });
-    const middle = path.slice(1, -1);
-    if (middle.length) params.set('waypoints', middle.map(fmt).join('|'));
-    return `https://www.google.com/maps/dir/?${params}`;
+/** One stretch of the day on foot, from a stop to the next. */
+export interface Leg {
+    km: number;
+    minutes: number;
+    /** True when estimated from the straight line (router unreachable or offline). */
+    approximate?: boolean;
+}
+
+// streets are rarely straight: a walk is about 30% longer than the crow flies
+const DETOUR = 1.3;
+const WALK_KMH = 4.5;
+
+// farther than this from the first/last stop, a stay is in another city (travel day)
+const WALK_REACH_KM = 15;
+
+/** True when going between the two on foot makes sense at all. */
+export function withinWalk(a: Coordinates, b: Coordinates): boolean {
+    return distanceKm(a, b) <= WALK_REACH_KM;
+}
+
+export function straightLeg(a: Coordinates, b: Coordinates): Leg {
+    const km = distanceKm(a, b) * DETOUR;
+    return { km, minutes: (km / WALK_KMH) * 60, approximate: true };
+}
+
+// Rough door-to-door model for a Japanese city: reaching the station and waiting,
+// then metro/train at its average speed including stops. Not a timetable.
+const TRANSIT_OVERHEAD_MIN = 12;
+const TRANSIT_KMH = 25;
+
+/** Estimated time by metro/train, when it beats walking by enough to be worth it. */
+export function transitHint(leg: Pick<Leg, 'km' | 'minutes'>): { minutes: number } | null {
+    if (leg.minutes < 30) return null;
+    const minutes = TRANSIT_OVERHEAD_MIN + (leg.km / TRANSIT_KMH) * 60;
+    return leg.minutes - minutes >= 10 ? { minutes } : null;
+}
+
+export function formatKm(km: number): string {
+    if (km < 1) return `${Math.round(km * 100) * 10} m`;
+    return `${km.toLocaleString('it-IT', { maximumFractionDigits: km < 10 ? 1 : 0 })} km`;
 }

@@ -47,10 +47,11 @@ export default function TripsIndex() {
                     <div>
                         <p className="flex items-center gap-1 text-[13px] font-semibold text-mute">
                             Ciao {user.name.split(' ')[0]}
-                            <button onClick={() => supabase.auth.signOut()} aria-label="Esci" className="-my-2 flex size-9 items-center justify-center rounded-lg hover:bg-card">
-                                <LogOut className="size-3.5" aria-hidden="true" />
-                            </button>
                             <ThemeButton />
+                            <button onClick={() => supabase.auth.signOut()} className="-my-2 flex h-9 items-center gap-1 rounded-lg px-2 hover:bg-card">
+                                <LogOut className="size-3.5" aria-hidden="true" />
+                                Esci
+                            </button>
                         </p>
                         <h1 className="mt-0.5 text-[30px] font-extrabold tracking-tight">I tuoi viaggi</h1>
                     </div>
@@ -110,17 +111,17 @@ function HeroTrip({ trip }: { trip: TripCard }) {
     );
 }
 
-const THEMES: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
-    { value: 'system', label: 'Tema automatico', icon: Monitor },
-    { value: 'light', label: 'Tema chiaro', icon: Sun },
-    { value: 'dark', label: 'Tema scuro', icon: Moon },
+const THEMES: { value: ThemeChoice; label: string; short: string; icon: typeof Sun }[] = [
+    { value: 'system', label: 'Tema automatico', short: 'Auto', icon: Monitor },
+    { value: 'light', label: 'Tema chiaro', short: 'Chiaro', icon: Sun },
+    { value: 'dark', label: 'Tema scuro', short: 'Scuro', icon: Moon },
 ];
 
 /** Cycles automatico → chiaro → scuro. */
 function ThemeButton() {
     const theme = useTheme();
     const index = THEMES.findIndex((t) => t.value === theme);
-    const { label, icon: Icon } = THEMES[index];
+    const { label, short, icon: Icon } = THEMES[index];
     const next = THEMES[(index + 1) % THEMES.length];
 
     return (
@@ -128,9 +129,10 @@ function ThemeButton() {
             onClick={() => setTheme(next.value)}
             aria-label={`${label}. Passa a: ${next.label.toLowerCase()}`}
             title={label}
-            className="-my-2 flex size-9 items-center justify-center rounded-lg hover:bg-card"
+            className="-my-2 ml-1 flex h-9 items-center gap-1 rounded-lg px-2 hover:bg-card"
         >
             <Icon className="size-3.5" aria-hidden="true" />
+            {short}
         </button>
     );
 }

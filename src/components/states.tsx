@@ -5,7 +5,7 @@ import { TripPresence } from '@/lib/presence';
 import { errorMessage } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 import { type ReactNode } from 'react';
-import { Link, Outlet, useParams } from 'react-router';
+import { Link, Outlet, useParams, useRouteError } from 'react-router';
 
 export function Splash() {
     return (
@@ -23,6 +23,35 @@ export function ErrorScreen({ message }: { message: string }) {
             <Link to={paths.trips()} className="flex h-11 items-center rounded-2xl bg-ink px-5 text-sm font-bold text-paper">
                 Torna ai viaggi
             </Link>
+        </div>
+    );
+}
+
+/**
+ * Shown by the router when a page crashes while rendering, instead of a blank screen.
+ * A page that fails to load after a deploy (old chunk gone) just needs a reload.
+ */
+export function CrashScreen() {
+    const error = useRouteError();
+    console.error(error);
+    const text = error instanceof Error ? error.message : String(error);
+    const staleBuild = /dynamically imported module|Importing a module script failed|error loading dynamically/i.test(text);
+    return (
+        <div role="alert" className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-paper px-6 text-center text-ink">
+            <p className="text-lg font-extrabold">{staleBuild ? "C'è una nuova versione di Tabi" : 'Qualcosa è andato storto'}</p>
+            <p className="max-w-sm text-sm text-mute">
+                {staleBuild ? 'Ricarica per aprire la pagina con la versione aggiornata.' : 'La pagina si è bloccata. I dati del viaggio sono al sicuro: riprova, e se succede ancora torna ai viaggi.'}
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+                <button onClick={() => window.location.reload()} className="flex h-11 items-center rounded-2xl bg-ink px-5 text-sm font-bold text-paper">
+                    {staleBuild ? 'Ricarica' : 'Riprova'}
+                </button>
+                {!staleBuild && (
+                    <a href={paths.trips()} className="flex h-11 items-center rounded-2xl border border-line bg-card px-5 text-sm font-bold">
+                        Torna ai viaggi
+                    </a>
+                )}
+            </div>
         </div>
     );
 }

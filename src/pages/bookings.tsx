@@ -6,7 +6,7 @@ import { ActivitySheet } from '@/components/activity-sheet';
 import { StaySheet } from '@/components/stay-sheet';
 import { Card, Chip, SectionTitle } from '@/components/ui';
 import TripLayout from '@/components/trip-layout';
-import { daysBetween, deadlineLabel, formatDayMonth, parseDate, type Activity, type Stay, type TripHeader } from '@/lib/trip';
+import { daysBetween, deadlineLabel, formatDayMonth, formatMoney, parseDate, type Activity, type Stay, type TripHeader } from '@/lib/trip';
 import { cn } from '@/lib/utils';
 import { ExternalLink } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -80,6 +80,7 @@ function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
                         <BookingRow
                             key={b.id}
                             booking={b}
+                            currency={trip.currency}
                             canEdit={trip.can_edit}
                             onToggle={() => markBooked(b, !b.booked)}
                             onOpen={() => trip.can_edit && setActivitySheet({ open: true, activity: b })}
@@ -139,7 +140,7 @@ function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
     );
 }
 
-function BookingRow({ booking: b, canEdit, onToggle, onOpen }: { booking: Activity; canEdit: boolean; onToggle: () => void; onOpen: () => void }) {
+function BookingRow({ booking: b, currency, canEdit, onToggle, onOpen }: { booking: Activity; currency: string; canEdit: boolean; onToggle: () => void; onOpen: () => void }) {
     const deadline = deadlineLabel(b.booking_deadline);
     const left = b.booking_deadline ? daysBetween(new Date(), parseDate(b.booking_deadline)) : null;
     const urgent = !b.booked && deadline.urgent;
@@ -153,7 +154,7 @@ function BookingRow({ booking: b, canEdit, onToggle, onOpen }: { booking: Activi
                 )}
             >
                 <b className="block text-[17px] leading-tight font-extrabold">{b.booked ? '✓' : left === null ? '—' : Math.max(left, 0)}</b>
-                <span className="text-[10px] font-bold tracking-wide">{b.booked ? 'FATTA' : left === null ? 'DATA?' : left === 1 ? 'GIORNO' : 'GIORNI'}</span>
+                <span className="text-[10px] font-bold tracking-wide">{b.booked ? 'FATTA' : left === null ? 'DATA?' : left < 0 ? 'SCADUTA' : left === 1 ? 'GIORNO' : 'GIORNI'}</span>
             </span>
             <div className="min-w-0 flex-1">
                 <button onClick={onOpen} disabled={!canEdit} className="block text-left text-sm font-bold enabled:hover:underline">
@@ -162,7 +163,7 @@ function BookingRow({ booking: b, canEdit, onToggle, onOpen }: { booking: Activi
                 <p className="mt-0.5 text-xs text-mute">
                     {b.date ? `Per il ${formatDayMonth(b.date)}` : 'Nella lista idee'}
                     {!b.booked && ` · ${deadline.text}`}
-                    {b.cost ? ` · ${b.cost.toLocaleString('it-IT')} a testa` : ''}
+                    {b.cost ? ` · ${formatMoney(b.cost, currency)} a testa` : ''}
                 </p>
                 <div className="mt-2 flex gap-1.5">
                     {b.booking_url && (

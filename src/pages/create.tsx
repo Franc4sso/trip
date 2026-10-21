@@ -1,3 +1,4 @@
+import { useConfirm } from '@/components/confirm-dialog';
 import { PlaceInput } from '@/components/place-input';
 import { addStop, lastStop } from '@/lib/places';
 import { ErrorScreen, WithTrip } from '@/components/states';
@@ -25,6 +26,7 @@ export default function TripFormRoute() {
 function TripForm({ trip }: { trip?: TripHeader }) {
     const navigate = useNavigate();
     const { run, pending, error } = useAction();
+    const confirm = useConfirm();
     const [dateError, setDateError] = useState<string | null>(null);
     const [data, setData] = useState({
         name: trip?.name ?? '',
@@ -53,7 +55,13 @@ function TripForm({ trip }: { trip?: TripHeader }) {
     };
 
     const destroy = async () => {
-        if (trip && confirm(`Eliminare «${trip.name}» per tutti i partecipanti? Non si può annullare.`) && (await run(() => api.deleteTrip(trip.id)))) {
+        if (!trip) return;
+        const ok = await confirm({
+            title: `Eliminare «${trip.name}»?`,
+            description: 'Il viaggio sparisce per tutti i partecipanti, con giorni, alloggi e spese. Non si può annullare.',
+            confirmLabel: 'Elimina viaggio',
+        });
+        if (ok && (await run(() => api.deleteTrip(trip.id)))) {
             navigate(paths.trips(), { replace: true });
         }
     };

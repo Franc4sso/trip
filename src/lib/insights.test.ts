@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeInsights } from './insights';
+import { computeInsights, dayStays } from './insights';
 import type { Activity, Stay } from './trip';
 
 const trip = { start_date: '2026-11-03', end_date: '2026-11-06' };
@@ -102,5 +102,23 @@ describe('computeInsights', () => {
             activity({ title: 'Whenever', booking_required: true }),
         ], []).pending_bookings.map((b) => b.title);
         expect(titles).toEqual(['Soon', 'Late', 'Whenever']);
+    });
+});
+
+describe('dayStays', () => {
+    const tokyo = stay({ name: 'Tokyo', check_in: '2026-11-03', check_out: '2026-11-06' });
+    const kyoto = stay({ name: 'Kyoto', check_in: '2026-11-06', check_out: '2026-11-11' });
+
+    it('wakes up and sleeps in the same place mid-stay', () => {
+        expect(dayStays([tokyo, kyoto], '2026-11-04')).toEqual({ morning: tokyo, night: tokyo });
+    });
+
+    it('moves from one stay to the next on a travel day', () => {
+        expect(dayStays([tokyo, kyoto], '2026-11-06')).toEqual({ morning: tokyo, night: kyoto });
+    });
+
+    it('has no morning stay on the first day and no night stay on the last', () => {
+        expect(dayStays([tokyo, kyoto], '2026-11-03')).toEqual({ morning: undefined, night: tokyo });
+        expect(dayStays([tokyo, kyoto], '2026-11-11')).toEqual({ morning: kyoto, night: undefined });
     });
 });

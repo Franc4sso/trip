@@ -3,7 +3,7 @@ import { computeInsights, nightsOf } from '@/lib/insights';
 import { paths } from '@/lib/paths';
 import { namesSentence, usePresence } from '@/lib/presence';
 import { StaySheet } from '@/components/stay-sheet';
-import { AvatarStack, Card, Chip, IconLink, SectionTitle } from '@/components/ui';
+import { AvatarStack, Card, Chip, IconLink, SectionTitle, TypeLegend } from '@/components/ui';
 import TripLayout from '@/components/trip-layout';
 import {
     ACTIVITY_TYPES,
@@ -146,6 +146,7 @@ function TripShow({ trip, insights, stays }: Props) {
                             <DayTile key={day.date} trip={trip} day={day} />
                         ))}
                     </div>
+                    <TypeLegend className="mt-2" />
                 </section>
 
                 <section>

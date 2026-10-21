@@ -1,3 +1,4 @@
+import { useConfirm } from '@/components/confirm-dialog';
 import { WithTrip } from '@/components/states';
 import TripLayout from '@/components/trip-layout';
 import { Polls } from '@/components/polls';
@@ -37,6 +38,7 @@ function Group({ trip, activities }: { trip: TripHeader; activities: Activity[] 
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const { run, error } = useAction();
+    const confirm = useConfirm();
     const [copied, setCopied] = useState(false);
     const [allEvents, setAllEvents] = useState(false);
     const isOwner = trip.role === 'owner';
@@ -62,11 +64,17 @@ function Group({ trip, activities }: { trip: TripHeader; activities: Activity[] 
     const setRole = (m: Member, role: Role) => run(() => api.setRole(trip.id, m.id, role));
     const remove = async (m: Member) => {
         const self = m.id === user.id;
-        if (!confirm(self ? `Uscire da «${trip.name}»?` : `Togliere ${m.name} dal viaggio?`)) return;
+        const ok = await confirm(
+            self
+                ? { title: `Uscire da «${trip.name}»?`, description: 'Per rientrare ti servirà di nuovo il link di invito.', confirmLabel: 'Esci' }
+                : { title: `Togliere ${m.name} dal viaggio?`, description: 'Non vedrà più il viaggio. Potrà rientrare solo con un nuovo invito.', confirmLabel: 'Togli' },
+        );
+        if (!ok) return;
         if ((await run(() => api.removeMember(trip.id, m.id))) && self) navigate(paths.trips(), { replace: true });
     };
     const regenerate = async () => {
-        if (!confirm('Il vecchio link smetterà di funzionare. Continuare?')) return;
+        const ok = await confirm({ title: 'Creare un nuovo link?', description: 'Il vecchio link di invito smetterà di funzionare.', confirmLabel: 'Nuovo link', tone: 'default' });
+        if (!ok) return;
         const fresh = await api.regenerateInvite(trip.id);
         queryClient.setQueryData(['invite', trip.id], fresh);
     };

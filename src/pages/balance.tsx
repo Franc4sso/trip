@@ -1,7 +1,7 @@
 import { WithTrip } from '@/components/states';
 import { computeInsights } from '@/lib/insights';
 import { paths } from '@/lib/paths';
-import { Card, IconLink } from '@/components/ui';
+import { Card, IconLink, TypeLegend } from '@/components/ui';
 import TripLayout from '@/components/trip-layout';
 import { ACTIVITY_TYPES, dayOfMonth, formatDayMonth, formatMinutes, formatWeekdayShort, type ActivityType, type Insights, type TripHeader } from '@/lib/trip';
 import { cn } from '@/lib/utils';
@@ -35,14 +35,7 @@ function Balance({ trip, insights }: { trip: TripHeader; insights: Insights }) {
             </div>
 
             <Card className="mt-4 px-3.5 pt-3.5 pb-3">
-                <div className="mb-2.5 flex flex-wrap gap-3">
-                    {ORDER.map((type) => (
-                        <span key={type} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-mute">
-                            <i className={cn('inline-block size-2.5 rounded-[3px]', ACTIVITY_TYPES[type].bar)} />
-                            {ACTIVITY_TYPES[type].label}
-                        </span>
-                    ))}
-                </div>
+                <TypeLegend className="mb-2.5" />
                 <ul className="flex flex-col gap-0.5">
                     {insights.days.map((day) => (
                         <li key={day.date}>

@@ -1,4 +1,4 @@
-import { avatarColor, initials, type Member } from '@/lib/trip';
+import { ACTIVITY_TYPES, avatarColor, initials, type ActivityType, type Member } from '@/lib/trip';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router';
 import { type ComponentProps, type ReactNode } from 'react';
@@ -36,11 +36,28 @@ export function IconLink({ label, className, children, ...props }: ComponentProp
     return (
         <Link
             aria-label={label}
+            title={label}
             className={cn('flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-line bg-card text-ink transition-colors hover:bg-hover', className)}
             {...props}
         >
             {children}
         </Link>
+    );
+}
+
+const LEGEND_ORDER: ActivityType[] = ['visit', 'food', 'experience', 'shopping', 'transport'];
+
+/** What the coloured bars mean. */
+export function TypeLegend({ className }: { className?: string }) {
+    return (
+        <div className={cn('flex flex-wrap gap-x-3 gap-y-1', className)}>
+            {LEGEND_ORDER.map((type) => (
+                <span key={type} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-mute">
+                    <i className={cn('inline-block size-2.5 rounded-[3px]', ACTIVITY_TYPES[type].bar)} />
+                    {ACTIVITY_TYPES[type].label}
+                </span>
+            ))}
+        </div>
     );
 }
 

@@ -71,6 +71,11 @@ Deno.serve(async (req) => {
         if (cached?.itinerary_hash === hash) return json({ ...cached.payload, cached: true, created_at: cached.created_at, itinerary_hash: hash });
     }
 
+    // say it plainly instead of failing inside the SDK, and before spending today's quota
+    if (!Deno.env.get('ANTHROPIC_API_KEY') && !Deno.env.get('ANTHROPIC_AUTH_TOKEN')) {
+        return fail(503, 'I consigli AI non sono ancora attivi: manca la chiave Anthropic sul server (vedi docs/DEPLOY.md, passo 6).');
+    }
+
     const { data: left } = await supabase.rpc('ai_requests_left', { p_daily_limit: DAILY_LIMIT });
     if (typeof left === 'number' && left <= 0) return fail(429, `Hai usato i ${DAILY_LIMIT} consigli di oggi: riprova domani.`);
     await supabase.from('ai_requests').insert({ trip_id: tripId, kind: question ? 'question' : 'suggestions' });

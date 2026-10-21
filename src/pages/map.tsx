@@ -1,17 +1,19 @@
+import { useConfirm } from '@/components/confirm-dialog';
 import { MapView, type MapPin } from '@/components/map-view';
 import { WithTrip } from '@/components/states';
 import TripLayout from '@/components/trip-layout';
 import { FormError } from '@/components/ui';
 import { api } from '@/lib/api';
-import { tripDays } from '@/lib/insights';
+import { dayStays, tripDays } from '@/lib/insights';
 import { paths } from '@/lib/paths';
 import type { Coordinates } from '@/lib/places';
-import { googleMapsUrl, routeKm, shortestOrder } from '@/lib/route';
-import { ACTIVITY_TYPES, dayOfMonth, formatWeekdayShort, type Activity, type Stay, type TripHeader } from '@/lib/trip';
+import { formatKm, routeKm, shortestOrder, transitHint, withinWalk, type Leg } from '@/lib/route';
+import { ACTIVITY_TYPES, dayOfMonth, formatMinutes, formatWeekdayShort, type Activity, type Stay, type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
 import { cn } from '@/lib/utils';
-import { ExternalLink, Navigation, Sparkles } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useWalk } from '@/lib/walking';
+import { Footprints, Navigation, Sparkles, TrainFront } from 'lucide-react';
+import { Fragment, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 // pin fills that read on both map themes
@@ -29,6 +31,7 @@ export default function MapRoute() {
 }
 
 const located = (a: { latitude: number | null; longitude: number | null }): a is { latitude: number; longitude: number } => a.latitude != null && a.longitude != null;
+const walkTime = (minutes: number) => formatMinutes(Math.max(1, Math.round(minutes)));
 
 function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Activity[]; stays: Stay[] }) {
     const [params, setParams] = useSearchParams();
@@ -37,6 +40,7 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const date = params.get('day') ?? (days.includes(today) ? today : days[0]);
     const { run, pending, error } = useAction();
+    const confirm = useConfirm();
     const stripRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -48,14 +52,37 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
         .sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99') || a.id - b.id);
     const stops = ofDay.filter(located);
     const missing = ofDay.filter((a) => !located(a));
-    const stay = stays.find((s) => s.check_in <= date && s.check_out > date) ?? stays.find((s) => s.check_out === date);
-    const home: Coordinates | null = stay && located(stay) ? { latitude: stay.latitude, longitude: stay.longitude } : null;
+    const coords = stops.map((a) => ({ latitude: a.latitude!, longitude: a.longitude! }));
+
+    // The walk starts where we slept and ends where we sleep tonight. On a travel day the
+    // other stay is in another city (the train covers that), so it's left out of the walk.
+    const { morning, night } = dayStays(stays, date);
+    const placeOf = (s: Stay | undefined): Coordinates | null => (s && located(s) ? { latitude: s.latitude, longitude: s.longitude } : null);
+    const reach = (s: Stay | undefined, stop: Coordinates | undefined) => {
+        const at = placeOf(s);
+        return at && stop && withinWalk(at, stop) ? at : null;
+    };
+    const start = reach(morning, coords[0]);
+    const end = reach(night, coords[coords.length - 1]);
+    const sameStay = !!morning && morning.id === night?.id;
+    // a round trip from the same stay: the shortest-order suggestion can use it as home
+    const home = sameStay ? start : null;
+    const startStay = start && !sameStay ? morning : undefined;
 
     const pins: MapPin[] = [
         ...stops.map((a, i) => ({ id: `a${a.id}`, label: String(i + 1), color: PIN_COLOR[a.type], title: a.title, latitude: a.latitude!, longitude: a.longitude! })),
-        ...(stay && home ? [{ id: `s${stay.id}`, label: null, color: '#1F7A4D', title: stay.name, ...home }] : []),
+        ...[startStay, night].flatMap((s) => {
+            const at = placeOf(s);
+            return s && at ? [{ id: `s${s.id}`, label: null, color: '#1F7A4D', title: s.name, ...at }] : [];
+        }),
     ];
-    const coords = stops.map((a) => ({ latitude: a.latitude!, longitude: a.longitude! }));
+    // the day on foot along real streets
+    const walk = useWalk(coords.length ? [...(start ? [start] : []), ...coords, ...(end ? [end] : [])] : []);
+    const legBefore = (i: number): Leg | undefined => (start ? walk.legs[i] : walk.legs[i - 1]);
+    const legHome = end ? walk.legs[(start ? 1 : 0) + coords.length - 1] : undefined;
+    const totalKm = walk.legs.reduce((sum, l) => sum + l.km, 0);
+    const totalMinutes = walk.legs.reduce((sum, l) => sum + l.minutes, 0);
+    const transitLegs = walk.legs.filter((l) => transitHint(l)).length;
 
     // only sightseeing with a time can move: we swap their time slots.
     // Transfers and meals stay where they are (a dinner is not a morning visit).
@@ -67,9 +94,15 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
     const saving = currentKm - bestKm;
     const worthIt = timed.length >= 3 && saving > 0.5 && saving / currentKm > 0.1;
 
-    const applyBestOrder = () => {
+    const applyBestOrder = async () => {
         const slots = timed.map((a) => a.start_time!);
-        if (!confirm(`Riordino le tappe per accorciare il percorso di ${saving.toFixed(1)} km. Gli orari restano gli stessi, cambia chi va in quale orario. Continuare?`)) return;
+        const ok = await confirm({
+            title: 'Riordinare le tappe?',
+            description: `Il percorso si accorcia di circa ${formatKm(saving)}. Gli orari restano gli stessi, cambia quale tappa va in quale orario.`,
+            confirmLabel: 'Riordina',
+            tone: 'default',
+        });
+        if (!ok) return;
         run(() => Promise.all(best.map((stopIndex, slot) => api.updateActivity(timed[stopIndex].id, { start_time: slots[slot] }))));
     };
 
@@ -103,7 +136,7 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
             </div>
 
             <div className="relative mt-3 h-[52dvh] min-h-72 overflow-hidden rounded-[22px] border border-line bg-sunken">
-                <MapView pins={pins} route={home && coords.length ? [home, ...coords, home] : coords} onPinClick={(id) => scrollToStop(id)} />
+                <MapView pins={pins} route={walk.line} approximate={walk.approximate} onPinClick={(id) => scrollToStop(id)} />
                 {pins.length === 0 && (
                     <div className="pointer-events-none absolute inset-x-4 top-4 rounded-2xl bg-card/95 p-3 text-center text-[13px] text-mute shadow">
                         Nessun luogo con posizione in questo giorno. Scegli i luoghi dai suggerimenti quando aggiungi un'attività.
@@ -125,30 +158,48 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
                 </div>
             )}
 
+            {walk.legs.length > 0 && (
+                <div className="mt-3 flex items-center gap-3 rounded-2xl border border-line bg-card px-3.5 py-3">
+                    <Footprints className="size-5 shrink-0 text-indigo" aria-hidden="true" />
+                    <p className="min-w-0 flex-1 text-[13px] text-mute" aria-live="polite">
+                        <b className="block text-[15px] text-ink">
+                            {walk.approximate && 'Circa '}
+                            {formatKm(totalKm)} · {walkTime(totalMinutes)} a piedi
+                        </b>
+                        {walk.loading
+                            ? 'Calcolo il percorso lungo le strade…'
+                            : walk.approximate
+                              ? "Stima in linea d'aria: il percorso lungo le strade torna con la connessione."
+                              : transitLegs > 0
+                                ? `${transitLegs === 1 ? 'In un tratto' : `In ${transitLegs} tratti`} conviene prendere i mezzi.`
+                                : home
+                                  ? "Dall'alloggio, tutte le tappe e ritorno."
+                                  : start || end
+                                    ? 'Dagli alloggi, tutte le tappe in ordine.'
+                                    : 'Tutte le tappe, in ordine.'}
+                    </p>
+                </div>
+            )}
+
             <ol className="mt-3 flex flex-col">
+                {startStay && <StayRow stay={startStay} label="Partenza" />}
                 {stops.map((a, i) => (
-                    <li key={a.id} id={`stop-a${a.id}`} className="flex items-center gap-3 border-line py-2.5 not-first:border-t">
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold text-white" style={{ background: PIN_COLOR[a.type] }}>
-                            {i + 1}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-bold">{a.title}</span>
-                            <span className="block truncate text-xs text-mute">{[ACTIVITY_TYPES[a.type].label, a.location].filter(Boolean).join(' · ')}</span>
-                        </span>
-                        <span className="text-xs font-semibold text-mute">{a.start_time ?? '—'}</span>
-                    </li>
+                    <Fragment key={a.id}>
+                        {legBefore(i) && <LegRow leg={legBefore(i)!} from={i === 0 ? "Dall'alloggio" : undefined} />}
+                        <li id={`stop-a${a.id}`} className="flex items-center gap-3 py-2.5">
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold text-white" style={{ background: PIN_COLOR[a.type] }}>
+                                {i + 1}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-bold">{a.title}</span>
+                                <span className="block truncate text-xs text-mute">{[ACTIVITY_TYPES[a.type].label, a.location].filter(Boolean).join(' · ')}</span>
+                            </span>
+                            <span className="text-xs font-semibold text-mute">{a.start_time ?? '—'}</span>
+                        </li>
+                    </Fragment>
                 ))}
-                {stay && (
-                    <li id={`stop-s${stay.id}`} className="flex items-center gap-3 border-t border-line py-2.5">
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-leaf text-paper" aria-hidden="true">
-                            <Navigation className="size-3.5" />
-                        </span>
-                        <span className="min-w-0 flex-1 text-sm">
-                            <b>Notte:</b> {stay.name}
-                            {!home && <span className="block text-xs text-mute">Senza posizione: cercalo nei suggerimenti per vederlo sulla mappa</span>}
-                        </span>
-                    </li>
-                )}
+                {legHome && <LegRow leg={legHome} from={sameStay ? 'Ritorno' : "All'alloggio"} />}
+                {night && <StayRow stay={night} label="Notte" divided={!legHome && stops.length > 0} />}
             </ol>
 
             {missing.length > 0 && (
@@ -161,18 +212,49 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
                 </p>
             )}
 
-            {coords.length > 0 && (
-                <a
-                    href={googleMapsUrl(coords, home)}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="mt-4 flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-card text-sm font-bold hover:bg-hover"
-                >
-                    Percorso in Google Maps
-                    <ExternalLink className="size-4" aria-hidden="true" />
-                </a>
-            )}
-
         </TripLayout>
+    );
+}
+
+function StayRow({ stay, label, divided = false }: { stay: Stay; label: string; divided?: boolean }) {
+    return (
+        <li id={`stop-s${stay.id}`} className={cn('flex items-center gap-3 py-2.5', divided && 'border-t border-line')}>
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-leaf text-paper" aria-hidden="true">
+                <Navigation className="size-3.5" />
+            </span>
+            <span className="min-w-0 flex-1 text-sm">
+                <b>{label}:</b> {stay.name}
+                {!located(stay) && <span className="block text-xs text-mute">Senza posizione: cercalo nei suggerimenti per vederlo sulla mappa</span>}
+            </span>
+        </li>
+    );
+}
+
+/** The stretch between two stops: time on foot and, when it's long, whether transit pays off. */
+function LegRow({ leg, from }: { leg: Leg; from?: string }) {
+    const transit = transitHint(leg);
+    const about = leg.approximate ? 'circa ' : '';
+    const spoken = `${from ? `${from}: ` : ''}${about}${formatKm(leg.km)}, ${walkTime(leg.minutes)} a piedi${transit ? `; con i mezzi circa ${walkTime(transit.minutes)}` : ''}`;
+    return (
+        <li className="flex items-stretch gap-3">
+            <span className="flex w-7 shrink-0 justify-center" aria-hidden="true">
+                <span className="border-l-2 border-dotted border-dash" />
+            </span>
+            <span className="sr-only">{spoken}</span>
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 py-1.5 text-xs text-mute" aria-hidden="true">
+                {from && <span className="font-semibold">{from}</span>}
+                <span className="inline-flex items-center gap-1 font-semibold">
+                    <Footprints className="size-3.5" />
+                    {about}
+                    {formatKm(leg.km)} · {walkTime(leg.minutes)}
+                </span>
+                {transit && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-soft px-2 py-0.5 font-bold text-indigo-deep">
+                        <TrainFront className="size-3.5" />
+                        Meglio i mezzi · ~{walkTime(transit.minutes)}
+                    </span>
+                )}
+            </span>
+        </li>
     );
 }

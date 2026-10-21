@@ -1,3 +1,4 @@
+import { useConfirm } from '@/components/confirm-dialog';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Card, Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api, usePolls, type Poll } from '@/lib/api';
@@ -40,6 +41,7 @@ export function Polls({ trip, ideas }: { trip: TripHeader; ideas: Activity[] }) 
 function PollCard({ trip, poll }: { trip: TripHeader; poll: Poll }) {
     const me = useUser();
     const { run, pending, error } = useAction();
+    const confirm = useConfirm();
     const mine = poll.poll_votes.find((v) => v.user_id === me.id)?.option_id ?? null;
     const total = poll.poll_votes.length;
     const max = Math.max(0, ...poll.poll_options.map((o) => poll.poll_votes.filter((v) => v.option_id === o.id).length));
@@ -106,7 +108,7 @@ function PollCard({ trip, poll }: { trip: TripHeader; poll: Poll }) {
                         </button>
                     )}
                     <button
-                        onClick={() => confirm('Eliminare il sondaggio?') && run(() => api.deletePoll(poll.id))}
+                        onClick={async () => (await confirm({ title: 'Eliminare il sondaggio?', description: 'Si perdono anche i voti già dati.' })) && run(() => api.deletePoll(poll.id))}
                         className="h-9 rounded-[10px] px-2.5 text-xs font-bold text-verm-ink hover:bg-verm-soft"
                     >
                         Elimina

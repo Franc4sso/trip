@@ -77,6 +77,15 @@ export function countdown(trip: Pick<TripHeader, 'start_date' | 'end_date'>, tod
     return 'concluso';
 }
 
+/** "9.000 ¥", "45 €": amounts are whole numbers in the trip's currency. */
+export function formatMoney(amount: number, currency: string): string {
+    try {
+        return amount.toLocaleString('it-IT', { style: 'currency', currency, currencyDisplay: 'narrowSymbol', maximumFractionDigits: 0 });
+    } catch {
+        return `${amount.toLocaleString('it-IT')} ${currency}`;
+    }
+}
+
 export function formatMinutes(minutes: number): string {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;

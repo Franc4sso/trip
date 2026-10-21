@@ -2,7 +2,8 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, Navigate, Outlet, RouterProvider, useLocation } from 'react-router';
-import { Splash, TripScope } from './components/states';
+import { ConfirmProvider } from './components/confirm-dialog';
+import { CrashScreen, Splash, TripScope } from './components/states';
 import { AuthProvider, useAuth } from './lib/auth';
 import { paths } from './lib/paths';
 import './index.css';
@@ -43,58 +44,64 @@ function GuestOnly() {
 
 const router = createBrowserRouter([
     {
-        element: <GuestOnly />,
+        // a page that crashes shows a way out instead of a blank screen
+        errorElement: <CrashScreen />,
         children: [
-            { path: '/', element: <Welcome /> },
-            { path: '/login', element: <LoginPage /> },
-            { path: '/register', element: <RegisterPage /> },
-        ],
-    },
-    {
-        element: <RequireAuth />,
-        children: [
-            { path: '/trips', element: <TripsIndex /> },
-            { path: '/trips/new', element: <TripForm /> },
             {
-                path: '/trips/:tripId',
-                element: <TripScope />,
+                element: <GuestOnly />,
                 children: [
-                    { index: true, element: <TripShow /> },
-                    { path: 'edit', element: <TripForm /> },
-                    { path: 'days/:date', element: <DayPage /> },
-                    { path: 'balance', element: <Balance /> },
-                    {
-                        path: 'map',
-                        element: (
-                            <Suspense fallback={<Splash />}>
-                                <MapPage />
-                            </Suspense>
-                        ),
-                    },
-                    { path: 'bookings', element: <Bookings /> },
-                    {
-                        path: 'board',
-                        element: (
-                            <Suspense fallback={<Splash />}>
-                                <BoardPage />
-                            </Suspense>
-                        ),
-                    },
-                    {
-                        path: 'advice',
-                        element: (
-                            <Suspense fallback={<Splash />}>
-                                <AdvicePage />
-                            </Suspense>
-                        ),
-                    },
-                    { path: 'group', element: <Group /> },
+                    { path: '/', element: <Welcome /> },
+                    { path: '/login', element: <LoginPage /> },
+                    { path: '/register', element: <RegisterPage /> },
                 ],
             },
-            { path: '/join/:token', element: <JoinPage /> },
+            {
+                element: <RequireAuth />,
+                children: [
+                    { path: '/trips', element: <TripsIndex /> },
+                    { path: '/trips/new', element: <TripForm /> },
+                    {
+                        path: '/trips/:tripId',
+                        element: <TripScope />,
+                        children: [
+                            { index: true, element: <TripShow /> },
+                            { path: 'edit', element: <TripForm /> },
+                            { path: 'days/:date', element: <DayPage /> },
+                            { path: 'balance', element: <Balance /> },
+                            {
+                                path: 'map',
+                                element: (
+                                    <Suspense fallback={<Splash />}>
+                                        <MapPage />
+                                    </Suspense>
+                                ),
+                            },
+                            { path: 'bookings', element: <Bookings /> },
+                            {
+                                path: 'board',
+                                element: (
+                                    <Suspense fallback={<Splash />}>
+                                        <BoardPage />
+                                    </Suspense>
+                                ),
+                            },
+                            {
+                                path: 'advice',
+                                element: (
+                                    <Suspense fallback={<Splash />}>
+                                        <AdvicePage />
+                                    </Suspense>
+                                ),
+                            },
+                            { path: 'group', element: <Group /> },
+                        ],
+                    },
+                    { path: '/join/:token', element: <JoinPage /> },
+                ],
+            },
+            { path: '*', element: <Navigate to="/" replace /> },
         ],
     },
-    { path: '*', element: <Navigate to="/" replace /> },
 ]);
 
 initTheme();
@@ -104,7 +111,9 @@ createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
             <AuthProvider>
-                <RouterProvider router={router} />
+                <ConfirmProvider>
+                    <RouterProvider router={router} />
+                </ConfirmProvider>
             </AuthProvider>
         </PersistQueryClientProvider>
     </StrictMode>,

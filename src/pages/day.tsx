@@ -12,6 +12,7 @@ import {
     ACTIVITY_TYPES,
     deadlineLabel,
     formatMinutes,
+    formatMoney,
     formatWeekday,
     StayIcon,
     tripLength,
@@ -87,32 +88,28 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
 
     return (
         <TripLayout title={`Giorno ${day.number} · ${trip.name}`} trip={trip} tab="days" dayHref={paths.day(trip.id, day.date)}>
-            <div className="flex items-center justify-between">
-                <IconLink label="Panoramica" to={paths.trip(trip.id)}>
-                    <ChevronLeft className="size-5" aria-hidden="true" />
-                </IconLink>
-                <div className="text-center">
+            {/* the arrows flank the date they change; "Viaggio" in the tab bar goes back */}
+            <div className="flex items-center justify-between gap-2">
+                {prev ? (
+                    <IconLink label={`Giorno precedente: ${formatWeekday(prev.date)}`} to={paths.day(trip.id, prev.date)}>
+                        <ChevronLeft className="size-5" aria-hidden="true" />
+                    </IconLink>
+                ) : (
+                    <span className="size-11 shrink-0" />
+                )}
+                <div className="min-w-0 text-center">
                     <p className="text-xs font-bold tracking-[0.06em] text-mute">
                         GIORNO {day.number} DI {tripLength(trip)}
                     </p>
                     <h1 className="text-lg font-extrabold">{formatWeekday(day.date)}</h1>
                 </div>
-                <div className="flex gap-1.5">
-                    {prev ? (
-                        <IconLink label="Giorno precedente" to={paths.day(trip.id, prev.date)} className="w-9">
-                            <ChevronLeft className="size-4" aria-hidden="true" />
-                        </IconLink>
-                    ) : (
-                        <span className="w-9" />
-                    )}
-                    {next ? (
-                        <IconLink label="Giorno successivo" to={paths.day(trip.id, next.date)} className="w-9">
-                            <ChevronRight className="size-4" aria-hidden="true" />
-                        </IconLink>
-                    ) : (
-                        <span className="w-9" />
-                    )}
-                </div>
+                {next ? (
+                    <IconLink label={`Giorno successivo: ${formatWeekday(next.date)}`} to={paths.day(trip.id, next.date)}>
+                        <ChevronRight className="size-5" aria-hidden="true" />
+                    </IconLink>
+                ) : (
+                    <span className="size-11 shrink-0" />
+                )}
             </div>
 
             <div className="mt-3 flex flex-wrap justify-center gap-2">
@@ -122,7 +119,7 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 </Chip>
                 {costPerHead > 0 && (
                     <Chip className="border border-line bg-card text-ink">
-                        {costPerHead.toLocaleString('it-IT')} {trip.currency} a testa
+                        {formatMoney(costPerHead, trip.currency)} a testa
                     </Chip>
                 )}
             </div>
@@ -150,7 +147,7 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                             {gap && <GapCard gap={gap} ideas={fitting(ideas, gap, day.city)} canEdit={trip.can_edit} onFill={() => openNew({ start_time: gap.from })} onPlace={(idea) => placeIdea(idea, gap.from)} />}
                             <li className="flex gap-2.5">
                                 <time className="w-11 shrink-0 pt-3 text-right text-xs font-bold text-mute">{a.start_time}</time>
-                                <ActivityCard activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} />
+                                <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} />
                             </li>
                         </Fragment>
                     );
@@ -162,7 +159,7 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 {untimed.map((a) => (
                     <li key={a.id} className="flex gap-2.5">
                         <span className="w-11 shrink-0" />
-                        <ActivityCard activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} />
+                        <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} />
                     </li>
                 ))}
 
@@ -208,6 +205,9 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 </section>
             )}
 
+            {/* room to scroll the last card out from under the + button */}
+            {trip.can_edit && <div className="h-16" aria-hidden="true" />}
+
             {trip.can_edit && (
                 <button
                     onClick={() => openNew()}
@@ -240,7 +240,7 @@ function fitting(ideas: Activity[], gap: Gap, city: string | null): Activity[] {
         .sort((a, b) => Number(sameCity(b)) - Number(sameCity(a)));
 }
 
-function ActivityCard({ activity: a, onOpen, editable }: { activity: Activity; onOpen: () => void; editable: boolean }) {
+function ActivityCard({ activity: a, currency, onOpen, editable }: { activity: Activity; currency: string; onOpen: () => void; editable: boolean }) {
     const editors = usePeersOn((f) => f?.kind === 'activity' && f.id === a.id);
     const meta = ACTIVITY_TYPES[a.type];
     const Icon = meta.icon;
@@ -261,7 +261,7 @@ function ActivityCard({ activity: a, onOpen, editable }: { activity: Activity; o
             <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold">{a.title}</span>
                 <span className="mt-px block text-xs text-mute">
-                    {[meta.label, a.duration_minutes ? formatMinutes(a.duration_minutes) : null, a.location, a.cost ? `${a.cost.toLocaleString('it-IT')} a testa` : null]
+                    {[meta.label, a.duration_minutes ? formatMinutes(a.duration_minutes) : null, a.location, a.cost ? `${formatMoney(a.cost, currency)} a testa` : null]
                         .filter(Boolean)
                         .join(' · ')}
                 </span>

@@ -40,6 +40,12 @@ export default defineConfig({
                         options: { cacheName: 'map-tiles', expiration: { maxEntries: 1500, maxAgeSeconds: 60 * 60 * 24 * 30 } },
                     },
                     {
+                        // walking routes: a day already opened keeps its streets offline
+                        urlPattern: ({ url }) => url.hostname === 'routing.openstreetmap.de',
+                        handler: 'StaleWhileRevalidate',
+                        options: { cacheName: 'walk-routes', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 } },
+                    },
+                    {
                         urlPattern: ({ url }) => url.hostname === 'fonts.bunny.net',
                         handler: 'CacheFirst',
                         options: { cacheName: 'fonts', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },

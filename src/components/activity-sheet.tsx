@@ -1,5 +1,7 @@
+import { useConfirm } from '@/components/confirm-dialog';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { PlaceInput } from '@/components/place-input';
+import { TimeField } from '@/components/time-field';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
 import { type Coordinates } from '@/lib/places';
@@ -33,6 +35,7 @@ const DURATIONS = [30, 60, 90, 120, 180, 240, 360];
 export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft, near, city }: Props) {
     const [data, setData] = useState(initial);
     const { run, pending, error, clearError } = useAction();
+    const confirm = useConfirm();
     useFocus(open, activity ? { kind: 'activity', id: activity.id } : { kind: 'new-activity', date: draft?.date ?? null });
     const alsoEditing = usePeersOn((f) => !!activity && f?.kind === 'activity' && f.id === activity.id);
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
@@ -85,7 +88,9 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
     };
 
     const remove = async () => {
-        if (activity && confirm(`Eliminare «${activity.title}»?`) && (await run(() => api.deleteActivity(activity.id)))) onOpenChange(false);
+        if (!activity) return;
+        const ok = await confirm({ title: `Eliminare «${activity.title}»?`, description: "L'attività sparisce dal programma per tutto il gruppo." });
+        if (ok && (await run(() => api.deleteActivity(activity.id)))) onOpenChange(false);
     };
 
     const target = data.date ? `${formatWeekdayShort(data.date).toLowerCase()} ${formatDayMonth(data.date)}` : 'lista idee';
@@ -194,21 +199,14 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                     </select>
                 </Field>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Orario" htmlFor="act-time">
-                        <input id="act-time" type="time" disabled={!data.date} className={cn(inputClass, 'disabled:opacity-50')} value={data.start_time} onChange={(e) => set('start_time', e.target.value)} />
-                    </Field>
-                    <Field label="Durata" htmlFor="act-duration">
-                        <select id="act-duration" className={inputClass} value={data.duration_minutes} onChange={(e) => set('duration_minutes', e.target.value)}>
-                            <option value="">—</option>
-                            {DURATIONS.map((m) => (
-                                <option key={m} value={m}>
-                                    {m < 60 ? `${m} min` : `${m / 60} h`.replace('.5 h', ' h 30')}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                </div>
+                <TimeField
+                    value={data.start_time}
+                    onChange={(time) => set('start_time', time)}
+                    duration={data.duration_minutes}
+                    onDurationChange={(minutes) => set('duration_minutes', minutes)}
+                    durations={DURATIONS}
+                    hasDate={!!data.date}
+                />
 
                 <Field label={`Costo a testa (${trip.currency})`} htmlFor="act-cost">
                     <input id="act-cost" inputMode="numeric" className={inputClass} value={data.cost} onChange={(e) => set('cost', e.target.value.replace(/\D/g, ''))} />

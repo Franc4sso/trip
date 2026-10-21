@@ -17,8 +17,10 @@ export interface MapPin extends Coordinates {
 
 interface Props {
     pins: MapPin[];
-    /** Draw a dashed walk through these points, in order. */
+    /** Draw the walk through these points, in order. */
     route: Coordinates[];
+    /** Straight-line estimate instead of real streets: drawn dashed. */
+    approximate?: boolean;
     onPinClick?: (id: string) => void;
 }
 
@@ -33,15 +35,15 @@ maplibregl.setWorkerUrl(workerUrl);
 const BED_ICON =
     '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 18h20"/></svg>';
 
-export function MapView({ pins, route, onPinClick }: Props) {
+export function MapView({ pins, route, approximate = false, onPinClick }: Props) {
     const dark = useIsDark();
     const container = useRef<HTMLDivElement>(null);
     const map = useRef<maplibregl.Map | null>(null);
     const markers = useRef<maplibregl.Marker[]>([]);
     // set on 'load': isStyleLoaded() turns false again while tiles stream in
     const ready = useRef(false);
-    const latest = useRef({ pins, route, onPinClick });
-    latest.current = { pins, route, onPinClick };
+    const latest = useRef({ pins, route, approximate, onPinClick });
+    latest.current = { pins, route, approximate, onPinClick };
 
     // create the map once; recreate the style when the theme flips
     useEffect(() => {
@@ -69,7 +71,7 @@ export function MapView({ pins, route, onPinClick }: Props) {
     }, [dark]);
 
     // redraw pins and route when the data changes
-    const key = JSON.stringify([pins, route]);
+    const key = JSON.stringify([pins, route, approximate]);
     useEffect(() => {
         const m = map.current;
         if (m && ready.current) draw(m, latest.current, markers, true);
@@ -78,7 +80,7 @@ export function MapView({ pins, route, onPinClick }: Props) {
     return <div ref={container} className="size-full" role="region" aria-label="Mappa del giorno" />;
 }
 
-function draw(m: maplibregl.Map, { pins, route, onPinClick }: Pick<Props, 'pins' | 'route' | 'onPinClick'>, markers: React.RefObject<maplibregl.Marker[]>, fit: boolean) {
+function draw(m: maplibregl.Map, { pins, route, approximate, onPinClick }: Pick<Props, 'pins' | 'route' | 'approximate' | 'onPinClick'>, markers: React.RefObject<maplibregl.Marker[]>, fit: boolean) {
     markers.current.forEach((mk) => mk.remove());
     markers.current = pins.map((pin) => {
         const el = document.createElement('button');
@@ -100,15 +102,19 @@ function draw(m: maplibregl.Map, { pins, route, onPinClick }: Pick<Props, 'pins'
 
     const line = { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: route.map((c) => [c.longitude, c.latitude]) } };
     const source = m.getSource(ROUTE_SOURCE) as maplibregl.GeoJSONSource | undefined;
-    if (source) source.setData(line);
-    else {
+    // solid along real streets, dashed for a straight-line estimate
+    const dash = approximate ? [0.1, 2] : undefined;
+    if (source) {
+        source.setData(line);
+        m.setPaintProperty(ROUTE_SOURCE, 'line-dasharray', dash);
+    } else {
         m.addSource(ROUTE_SOURCE, { type: 'geojson', data: line });
         m.addLayer({
             id: ROUTE_SOURCE,
             type: 'line',
             source: ROUTE_SOURCE,
             layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': '#5B6CFF', 'line-width': 4, 'line-dasharray': [0.1, 2] },
+            paint: { 'line-color': '#5B6CFF', 'line-width': 4, 'line-opacity': 0.85, ...(dash && { 'line-dasharray': dash }) },
         });
     }
 

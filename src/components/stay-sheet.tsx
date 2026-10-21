@@ -1,3 +1,4 @@
+import { useConfirm } from '@/components/confirm-dialog';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { PlaceInput } from '@/components/place-input';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
@@ -19,6 +20,7 @@ interface Props {
 export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
     const [data, setData] = useState(initial);
     const { run, pending, error, clearError } = useAction();
+    const confirm = useConfirm();
     useFocus(open, { kind: 'stay', id: stay?.id ?? null });
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
 
@@ -61,7 +63,9 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
     };
 
     const remove = async () => {
-        if (stay && confirm(`Eliminare l'alloggio «${stay.name}»?`) && (await run(() => api.deleteStay(stay.id)))) onOpenChange(false);
+        if (!stay) return;
+        const ok = await confirm({ title: `Eliminare l'alloggio «${stay.name}»?`, description: 'Le notti tornano senza alloggio per tutto il gruppo.' });
+        if (ok && (await run(() => api.deleteStay(stay.id)))) onOpenChange(false);
     };
 
     return (

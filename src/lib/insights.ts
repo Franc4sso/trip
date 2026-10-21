@@ -50,6 +50,11 @@ export function coversNight(stay: Pick<Stay, 'check_in' | 'check_out'>, date: st
     return date >= stay.check_in && date < stay.check_out;
 }
 
+/** Where the day starts (last night's stay) and ends (tonight's): different on a travel day. */
+export function dayStays<S extends Pick<Stay, 'check_in' | 'check_out'>>(stays: S[], date: string): { morning: S | undefined; night: S | undefined } {
+    return { morning: stays.find((s) => coversNight(s, addDays(date, -1))), night: stays.find((s) => coversNight(s, date)) };
+}
+
 export function startMinute(a: Pick<Activity, 'start_time'>): number | null {
     if (!a.start_time) return null;
     const [h, m] = a.start_time.split(':').map(Number);
