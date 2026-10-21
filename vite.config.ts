@@ -29,8 +29,16 @@ export default defineConfig({
             },
             workbox: {
                 navigateFallback: '/index.html',
-                globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+                globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,woff2}'],
+                // the map chunk and its worker are ~1 MB each
+                maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
                 runtimeCaching: [
+                    {
+                        // map tiles and styles: areas already seen stay visible offline
+                        urlPattern: ({ url }) => url.hostname === 'tiles.openfreemap.org',
+                        handler: 'StaleWhileRevalidate',
+                        options: { cacheName: 'map-tiles', expiration: { maxEntries: 1500, maxAgeSeconds: 60 * 60 * 24 * 30 } },
+                    },
                     {
                         urlPattern: ({ url }) => url.hostname === 'fonts.bunny.net',
                         handler: 'CacheFirst',

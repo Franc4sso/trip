@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { clearOfflineData } from './offline';
 import { supabase } from './supabase';
 
 interface AuthState {
@@ -14,11 +15,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data }) => setState({ session: data.session, loading: false }));
-        const { data } = supabase.auth.onAuthStateChange((_event, session) => setState({ session, loading: false }));
+        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT') clearOfflineData();
+            // a different account on this device must not see the previous one's saved trips
+            if (session && rememberUser(session.user.id)) clearOfflineData();
+            setState({ session, loading: false });
+        });
         return () => data.subscription.unsubscribe();
     }, []);
 
     return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
+}
+
+/** Stores the signed-in user id; true when it differs from the one stored before. */
+function rememberUser(id: string): boolean {
+    try {
+        const previous = localStorage.getItem('tabi-user');
+        localStorage.setItem('tabi-user', id);
+        return previous !== null && previous !== id;
+    } catch {
+        return false;
+    }
 }
 
 export function useAuth(): AuthState {

@@ -1,7 +1,8 @@
 import { paths } from '@/lib/paths';
+import { useOnline } from '@/lib/offline';
 import { type TripHeader } from '@/lib/trip';
 import { cn } from '@/lib/utils';
-import { CalendarDays, House, Map, Ticket, Users } from 'lucide-react';
+import { CalendarDays, CloudOff, House, Map, Ticket, Users } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function TripLayout({ title, trip, tab, dayHref, children }: Props) {
+    const online = useOnline();
     useEffect(() => {
         document.title = `${title} · Tabi`;
     }, [title]);
@@ -33,6 +35,12 @@ export default function TripLayout({ title, trip, tab, dayHref, children }: Prop
 
     return (
         <div className="min-h-dvh bg-paper text-ink">
+            {!online && (
+                <div role="status" className="sticky top-0 z-40 flex items-center justify-center gap-2 bg-ink px-4 py-2 pt-[max(env(safe-area-inset-top),0.5rem)] text-xs font-bold text-paper">
+                    <CloudOff className="size-4" aria-hidden="true" />
+                    Offline: vedi l'ultima versione salvata, le modifiche sono in pausa
+                </div>
+            )}
             <main className={cn('mx-auto w-full max-w-md px-5 pt-[max(env(safe-area-inset-top),2.5rem)]', trip ? 'pb-[calc(8rem+var(--badge-space))]' : 'pb-[calc(3rem+var(--badge-space))]')}>{children}</main>
 
             {trip && (

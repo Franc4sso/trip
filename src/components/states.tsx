@@ -1,5 +1,6 @@
 import { useTrip, useTripRealtime, type TripData } from '@/lib/api';
 import { paths } from '@/lib/paths';
+import { useOnline } from '@/lib/offline';
 import { TripPresence } from '@/lib/presence';
 import { errorMessage } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
@@ -44,7 +45,9 @@ export function TripScope() {
 export function WithTrip({ children }: { children: (data: TripData) => ReactNode }) {
     const id = Number(useParams().tripId);
     const query = useTrip(id);
+    const online = useOnline();
 
+    if (query.isPending && !online) return <ErrorScreen message="Sei offline e questo viaggio non è ancora salvato su questo dispositivo. Aprilo una volta con la connessione." />;
     if (query.isPending) return <Splash />;
     if (query.isError) {
         const notFound = (query.error as { code?: string }).code === 'PGRST116';

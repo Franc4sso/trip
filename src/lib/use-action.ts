@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
+import { isOnline } from './offline';
 import { errorMessage } from './supabase';
 
 /**
@@ -13,6 +14,10 @@ export function useAction() {
 
     const run = useCallback(
         async (write: () => Promise<unknown>): Promise<boolean> => {
+            if (!isOnline()) {
+                setError('Sei offline: le modifiche tornano disponibili appena c\'è connessione.');
+                return false;
+            }
             setPending(true);
             setError(null);
             try {
