@@ -94,7 +94,21 @@ La anon key la trovi in *Project Settings → API Keys* (quella `anon` / `public
 2. **Gruppo → Condividi link di invito** → mandalo agli amici.
 3. Dal telefono: *Condividi → Aggiungi a schermata Home* (iPhone) o *Installa app* (Android).
 
+### 6. Consigli AI (Claude)
+
+I consigli girano in una **Supabase Edge Function** (`supabase/functions/advice`), non su Netlify:
+le Netlify Functions gratuite si fermano dopo 10 secondi, una risposta ragionata può metterci di più.
+
+1. Crea una chiave su https://console.anthropic.com → *API Keys* (serve un metodo di pagamento;
+   ogni richiesta costa qualche centesimo, i consigli sono messi in cache finché il viaggio non cambia
+   e ogni persona ha al massimo 30 richieste al giorno).
+2. Supabase → *Edge Functions → Secrets* → aggiungi `ANTHROPIC_API_KEY` con la chiave.
+   (Dal terminale: `npx supabase secrets set ANTHROPIC_API_KEY=...`.) La chiave resta solo su Supabase,
+   non va mai su Netlify né nel codice.
+3. Pubblica la funzione: `npx supabase functions deploy advice`.
+
 ## Aggiornare l'app
 
 - Codice cambiato → `git push` (con Netlify collegato a GitHub), altrimenti `npx netlify deploy --build --prod`
 - Schema cambiato (nuova migrazione) → prima `npx supabase db push`, poi il push del codice.
+- Funzione dei consigli cambiata → `npx supabase functions deploy advice`.

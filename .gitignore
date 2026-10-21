@@ -27,3 +27,4 @@ dist-ssr
 supabase/.temp
 supabase/.branches
 dev-dist
+supabase/functions/.env

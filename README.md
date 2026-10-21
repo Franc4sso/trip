@@ -4,7 +4,9 @@ PWA per pianificare viaggi in gruppo: giorni, attività, alloggi, prenotazioni e
 condivisi in tempo reale con chi parte con te.
 
 - **Frontend**: React 19 + Vite + Tailwind 4, installabile come PWA. Deploy su **Netlify**.
-- **Backend**: **Supabase** (Auth, Postgres con RLS, Realtime). Nessun server da gestire.
+- **Backend**: **Supabase** (Auth, Postgres con RLS, Realtime, Edge Functions). Nessun server da gestire.
+- **Consigli AI**: Claude (Anthropic) tramite la Edge Function `advice`.
+- **Mappe e luoghi**: OpenStreetMap (OpenFreeMap per le mappe, Photon per la ricerca), senza chiavi.
 
 Mockup di riferimento: https://claude.ai/artifact/KHpwk1qW6LLcZwt4c62RyA
 
@@ -18,6 +20,10 @@ npx supabase start                # avvia Postgres, Auth, Realtime in Docker
 npx supabase db reset             # applica migrazioni + dati demo (supabase/seed.sql)
 npx supabase status -o env        # copia API_URL e ANON_KEY in .env.local (vedi .env.example)
 npm run dev
+
+# consigli AI in locale (opzionale): serve una chiave Anthropic
+echo "ANTHROPIC_API_KEY=sk-ant-..." > supabase/functions/.env
+npx supabase functions serve advice --env-file supabase/functions/.env
 ```
 
 Utente demo: `demo@tabi.test` / `password` (anche `ale@`, `sara@`, `davide@tabi.test`).
@@ -26,7 +32,7 @@ Utente demo: `demo@tabi.test` / `password` (anche `ale@`, `sara@`, `davide@tabi.
 
 ```bash
 npm test                          # logica dei giorni: buchi, giorni pieni/vuoti, notti scoperte
-npx supabase test db              # permessi (RLS), inviti, vincoli sulle date
+npx supabase test db              # permessi (RLS), inviti, feed, sondaggi, vincoli sulle date
 ```
 
 ## Deploy
@@ -61,10 +67,14 @@ La chiave `anon` è pensata per stare nel browser: i dati sono protetti dalle po
 src/
   lib/insights.ts      analisi del viaggio (buchi, giorni pieni/vuoti, notti scoperte, prenotazioni)
   lib/api.ts           query Supabase + aggiornamenti realtime
+  lib/advice.ts        itinerario per Claude e schema dei consigli (condiviso con la Edge Function)
+  lib/presence.tsx     chi è online e cosa sta modificando
+  lib/offline.ts       cache sul dispositivo e stato della connessione
   pages/               schermate (lista viaggi, panoramica, giorno, bilancio, prenotazioni, gruppo)
   components/          UI condivisa, bottom sheet per attività e alloggi
 supabase/
-  migrations/          schema, RLS, funzioni (create_trip, join_trip, inviti)
+  migrations/          schema, RLS, funzioni (create_trip, join_trip, inviti), feed, sondaggi, consigli
+  functions/advice/    Edge Function dei consigli AI
   tests/database/      test pgTAP dei permessi
   seed.sql             viaggio demo
 ```
