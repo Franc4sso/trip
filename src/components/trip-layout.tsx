@@ -14,10 +14,12 @@ interface Props {
     tab?: TripTab;
     /** Day to open from the "Giorni" tab: today when travelling, else the first day. */
     dayHref?: string;
+    /** Use the full window width (desktop board). */
+    wide?: boolean;
     children: ReactNode;
 }
 
-export default function TripLayout({ title, trip, tab, dayHref, children }: Props) {
+export default function TripLayout({ title, trip, tab, dayHref, wide, children }: Props) {
     const online = useOnline();
     useEffect(() => {
         document.title = `${title} · Tabi`;
@@ -41,7 +43,7 @@ export default function TripLayout({ title, trip, tab, dayHref, children }: Prop
                     Offline: vedi l'ultima versione salvata, le modifiche sono in pausa
                 </div>
             )}
-            <main className={cn('mx-auto w-full max-w-md px-5 pt-[max(env(safe-area-inset-top),2.5rem)]', trip ? 'pb-[calc(8rem+var(--badge-space))]' : 'pb-[calc(3rem+var(--badge-space))]')}>{children}</main>
+            <main className={cn('mx-auto w-full px-5 pt-[max(env(safe-area-inset-top),2.5rem)]', wide ? 'max-w-none lg:px-8' : 'max-w-md', trip ? 'pb-[calc(8rem+var(--badge-space))]' : 'pb-[calc(3rem+var(--badge-space))]')}>{children}</main>
 
             {trip && (
                 <nav aria-label="Sezioni del viaggio" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card pb-[calc(max(env(safe-area-inset-bottom),0.75rem)+var(--badge-space))]">

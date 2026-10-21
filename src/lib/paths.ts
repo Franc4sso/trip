@@ -11,6 +11,7 @@ export const paths = {
     map: (id: number, date?: string) => `/trips/${id}/map${date ? `?day=${date}` : ''}`,
     bookings: (id: number) => `/trips/${id}/bookings`,
     advice: (id: number) => `/trips/${id}/advice`,
+    board: (id: number) => `/trips/${id}/board`,
     group: (id: number) => `/trips/${id}/group`,
     join: (token: string) => `/join/${token}`,
 };

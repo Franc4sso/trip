@@ -23,6 +23,7 @@ import Welcome from './pages/welcome';
 // MapLibre is heavy: load the map page only when opened
 const MapPage = lazy(() => import('./pages/map'));
 const AdvicePage = lazy(() => import('./pages/advice'));
+const BoardPage = lazy(() => import('./pages/board'));
 
 function RequireAuth() {
     const { session, loading } = useAuth();
@@ -71,6 +72,14 @@ const router = createBrowserRouter([
                         ),
                     },
                     { path: 'bookings', element: <Bookings /> },
+                    {
+                        path: 'board',
+                        element: (
+                            <Suspense fallback={<Splash />}>
+                                <BoardPage />
+                            </Suspense>
+                        ),
+                    },
                     {
                         path: 'advice',
                         element: (

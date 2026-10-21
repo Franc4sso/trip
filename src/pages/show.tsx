@@ -22,7 +22,7 @@ import {
 } from '@/lib/trip';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router';
-import { BedDouble, CalendarX2, ChevronLeft, Clock3, Pencil, Sparkles, Ticket, UserPlus } from 'lucide-react';
+import { BedDouble, CalendarX2, ChevronLeft, Clock3, Columns3, Pencil, Sparkles, Ticket, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
 export default function TripShowRoute() {
@@ -137,6 +137,10 @@ function TripShow({ trip, insights, stays }: Props) {
                     >
                         Giorni
                     </SectionTitle>
+                    <Link to={paths.board(trip.id)} className="mb-2 hidden items-center gap-1.5 text-[13px] font-bold text-indigo hover:underline md:inline-flex">
+                        <Columns3 className="size-4" aria-hidden="true" />
+                        Apri la board a colonne
+                    </Link>
                     <div className="-mx-5 flex snap-x scroll-px-5 gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
                         {insights.days.map((day) => (
                             <DayTile key={day.date} trip={trip} day={day} />
