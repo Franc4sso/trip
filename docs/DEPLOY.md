@@ -66,7 +66,17 @@ npx supabase db push                        # crea tabelle, regole, funzioni
 - **Site URL**: `https://<tuo-sito>.netlify.app`
 - **Redirect URLs**: aggiungi `https://<tuo-sito>.netlify.app/**`
 
-### 4. Pubblica su Netlify (dal terminale)
+### 4. Pubblica su Netlify
+
+**Consigliato: collegato a GitHub** (ogni push su `main` ripubblica da solo)
+
+1. https://app.netlify.com → **Add new project → Import an existing project → GitHub** → `Franc4sso/trip`.
+2. Build e cartella di output sono già in `netlify.toml`: lascia i valori proposti.
+3. Prima di cliccare *Deploy*, apri **Add environment variables** e aggiungi
+   `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (valori sotto).
+4. **Deploy**. Poi in *Project configuration → Change project name* scegli l'indirizzo (es. `tabi-giappone`).
+
+**In alternativa, dal terminale** (senza GitHub):
 
 ```bash
 npx netlify login
@@ -86,7 +96,5 @@ La anon key la trovi in *Project Settings → API Keys* (quella `anon` / `public
 
 ## Aggiornare l'app
 
-- Codice cambiato → `npx netlify deploy --build --prod`
-- Schema cambiato (nuova migrazione) → `npx supabase db push` e poi il deploy.
-
-Più avanti: collegando un repository GitHub a Netlify, ogni push pubblica da solo.
+- Codice cambiato → `git push` (con Netlify collegato a GitHub), altrimenti `npx netlify deploy --build --prod`
+- Schema cambiato (nuova migrazione) → prima `npx supabase db push`, poi il push del codice.
