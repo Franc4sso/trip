@@ -71,5 +71,21 @@ select t.id, a.* from t, (values
     (null, null, 120, 'experience', 'Ghibli Museum', 'Tokyo', 1000, true, null, false)
 ) as a;
 
+-- positions for the Kyoto days, so the map has something to show
+update public.activities a set latitude = v.lat, longitude = v.lon
+from (values
+    ('Shinkansen → Kyoto', 34.9858, 135.7588),
+    ('Deposito bagagli al ryokan', 34.9986, 135.7810),
+    ('Kiyomizu-dera', 34.9949, 135.7850),
+    ('Passeggiata a Gion', 35.0037, 135.7788),
+    ('Cena kaiseki', 35.0050, 135.7750),
+    ('Fushimi Inari', 34.9671, 135.7727),
+    ('Tofuku-ji', 34.9761, 135.7739),
+    ('Kinkaku-ji', 35.0394, 135.7292),
+    ('Nijo-jo', 35.0142, 135.7482),
+    ('Nishiki Market', 35.0050, 135.7649)
+) as v(title, lat, lon)
+where a.title = v.title;
+
 -- the demo rows above were inserted without a signed-in user: start with a clean feed
 delete from public.trip_events;

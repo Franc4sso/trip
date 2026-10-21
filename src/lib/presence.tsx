@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useUser } from './auth';
-import { supabase } from './supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { openChannel } from './channels';
 
 /** What someone is doing right now, shared through Supabase Realtime presence. */
 export type Focus = { kind: 'activity'; id: number } | { kind: 'new-activity'; date: string | null } | { kind: 'stay'; id: number | null } | null;
@@ -22,29 +23,32 @@ const PresenceContext = createContext<PresenceValue>({ peers: new Map(), setFocu
 export function TripPresence({ tripId, children }: { tripId: number; children: ReactNode }) {
     const me = useUser();
     const [peers, setPeers] = useState<Map<string, PeerState>>(new Map());
-    const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+    const channelRef = useRef<RealtimeChannel | null>(null);
     const focusRef = useRef<Focus>(null);
 
     useEffect(() => {
-        const channel = supabase.channel(`presence:trip:${tripId}`, { config: { presence: { key: me.id } } });
-        channelRef.current = channel;
-
-        channel
-            .on('presence', { event: 'sync' }, () => {
-                const next = new Map<string, PeerState>();
-                for (const [key, metas] of Object.entries(channel.presenceState<PeerState>())) {
-                    // several tabs of the same person: the latest one wins
-                    if (key !== me.id && metas.length > 0) next.set(key, metas[metas.length - 1]);
-                }
-                setPeers(next);
-            })
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') channel.track({ user_id: me.id, name: me.name, focus: focusRef.current });
-            });
+        const close = openChannel(
+            `presence:trip:${tripId}`,
+            (channel) =>
+                channel.on('presence', { event: 'sync' }, () => {
+                    const next = new Map<string, PeerState>();
+                    for (const [key, metas] of Object.entries(channel.presenceState<PeerState>())) {
+                        // several tabs of the same person: the latest one wins
+                        if (key !== me.id && metas.length > 0) next.set(key, metas[metas.length - 1]);
+                    }
+                    setPeers(next);
+                }),
+            { config: { presence: { key: me.id } } },
+            (channel) => {
+                channelRef.current = channel;
+                channel.track({ user_id: me.id, name: me.name, focus: focusRef.current });
+            },
+        );
 
         return () => {
             channelRef.current = null;
-            supabase.removeChannel(channel);
+            setPeers(new Map());
+            close();
         };
     }, [tripId, me.id, me.name]);
 

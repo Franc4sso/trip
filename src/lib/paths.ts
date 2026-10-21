@@ -8,6 +8,7 @@ export const paths = {
     editTrip: (id: number) => `/trips/${id}/edit`,
     day: (id: number, date: string) => `/trips/${id}/days/${date}`,
     balance: (id: number) => `/trips/${id}/balance`,
+    map: (id: number, date?: string) => `/trips/${id}/map${date ? `?day=${date}` : ''}`,
     bookings: (id: number) => `/trips/${id}/bookings`,
     group: (id: number) => `/trips/${id}/group`,
     join: (token: string) => `/join/${token}`,

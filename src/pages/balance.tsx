@@ -23,7 +23,7 @@ function Balance({ trip, insights }: { trip: TripHeader; insights: Insights }) {
     const totalMinutes = totals.reduce((n, t) => n + t.minutes, 0);
 
     return (
-        <TripLayout title={`Bilanciamento · ${trip.name}`} trip={trip} tab="balance">
+        <TripLayout title={`Bilanciamento · ${trip.name}`} trip={trip} tab="trip">
             <div className="flex items-center gap-3">
                 <IconLink label="Panoramica" to={paths.trip(trip.id)}>
                     <ChevronLeft className="size-5" aria-hidden="true" />

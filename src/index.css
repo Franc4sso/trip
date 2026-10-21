@@ -104,6 +104,14 @@
         background: var(--color-paper);
     }
 
+    /* screen-reader labels are absolutely positioned: keep them from widening the page
+       when their container is not positioned (it happened twice) */
+    .sr-only {
+        clip-path: inset(50%);
+        left: 0;
+        top: 0;
+    }
+
     button:not(:disabled),
     [role='button']:not(:disabled) {
         cursor: pointer;
@@ -122,4 +130,30 @@
         text-align: left;
         min-height: 1.5em;
     }
+}
+
+/* map pins (components/map-view.tsx): numbered drops */
+.tabi-pin {
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+.tabi-pin-drop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 4px;
+    border-radius: 50% 50% 50% 4px;
+    transform: rotate(-45deg);
+    border: 2px solid #fff;
+    box-shadow: 0 4px 10px rgb(0 0 0 / 0.25);
+    color: #fff;
+    font: 800 13px/1 var(--font-sans);
+}
+.tabi-pin-drop > span {
+    display: flex;
+    transform: rotate(45deg);
 }

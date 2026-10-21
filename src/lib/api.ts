@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useUser } from './auth';
+import { openChannel } from './channels';
 import { supabase } from './supabase';
 import type { Activity, Member, Role, Stay, Trip, TripHeader } from './trip';
 
@@ -124,19 +125,15 @@ export function useTripRealtime(id: number) {
             queryClient.invalidateQueries({ queryKey: ['trips'] });
         };
         const filter = `trip_id=eq.${id}`;
-        const channel = supabase
-            .channel(`trip:${id}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'activities', filter }, refresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'stays', filter }, refresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_members', filter }, refresh)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trip_events', filter }, () =>
-                queryClient.invalidateQueries({ queryKey: ['events', id] }),
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return openChannel(`trip:${id}`, (channel) =>
+            channel
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'activities', filter }, refresh)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'stays', filter }, refresh)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_members', filter }, refresh)
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trip_events', filter }, () =>
+                    queryClient.invalidateQueries({ queryKey: ['events', id] }),
+                ),
+        );
     }, [id, queryClient]);
 }
 

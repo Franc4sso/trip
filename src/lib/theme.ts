@@ -21,6 +21,7 @@ function apply() {
     const dark = choice === 'dark' || (choice === 'system' && media.matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#111216' : '#F3F2EE');
+    listeners.forEach((l) => l());
 }
 
 /** Call once at startup: applies the theme and follows system changes. */
@@ -40,15 +41,20 @@ export function setTheme(next: ThemeChoice) {
         // private mode: the choice lasts for this visit only
     }
     apply();
-    listeners.forEach((l) => l());
+}
+
+function subscribe(l: () => void) {
+    listeners.add(l);
+    return () => {
+        listeners.delete(l);
+    };
 }
 
 export function useTheme(): ThemeChoice {
-    return useSyncExternalStore(
-        (l) => {
-            listeners.add(l);
-            return () => listeners.delete(l);
-        },
-        () => choice,
-    );
+    return useSyncExternalStore(subscribe, () => choice);
+}
+
+/** The theme actually shown, with "system" resolved. */
+export function useIsDark(): boolean {
+    return useSyncExternalStore(subscribe, () => document.documentElement.dataset.theme === 'dark');
 }

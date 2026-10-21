@@ -1,11 +1,11 @@
 import { paths } from '@/lib/paths';
 import { type TripHeader } from '@/lib/trip';
 import { cn } from '@/lib/utils';
-import { CalendarDays, ChartColumnStacked, House, Ticket, Users } from 'lucide-react';
+import { CalendarDays, House, Map, Ticket, Users } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
-export type TripTab = 'trip' | 'days' | 'bookings' | 'balance' | 'group';
+export type TripTab = 'trip' | 'days' | 'map' | 'bookings' | 'balance' | 'group';
 
 interface Props {
     title: string;
@@ -25,8 +25,8 @@ export default function TripLayout({ title, trip, tab, dayHref, children }: Prop
         ? [
               { key: 'trip', label: 'Viaggio', icon: House, href: paths.trip(trip.id) },
               { key: 'days', label: 'Giorni', icon: CalendarDays, href: dayHref ?? paths.day(trip.id, firstDay(trip)) },
+              { key: 'map', label: 'Mappa', icon: Map, href: paths.map(trip.id) },
               { key: 'bookings', label: 'Prenota', icon: Ticket, href: paths.bookings(trip.id) },
-              { key: 'balance', label: 'Bilancio', icon: ChartColumnStacked, href: paths.balance(trip.id) },
               { key: 'group', label: 'Gruppo', icon: Users, href: paths.group(trip.id) },
           ]
         : [];
