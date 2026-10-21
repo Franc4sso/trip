@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './lib/auth';
 import { paths } from './lib/paths';
 import './index.css';
 import { reserveSpaceForNetlifyBadge } from './lib/netlify-badge';
+import { initTheme } from './lib/theme';
 import { LoginPage, RegisterPage } from './pages/auth';
 import Balance from './pages/balance';
 import Bookings from './pages/bookings';
@@ -64,6 +65,7 @@ const router = createBrowserRouter([
     { path: '*', element: <Navigate to="/" replace /> },
 ]);
 
+initTheme();
 reserveSpaceForNetlifyBadge();
 
 createRoot(document.getElementById('root')!).render(

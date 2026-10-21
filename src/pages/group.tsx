@@ -84,7 +84,7 @@ function Group({ trip }: { trip: TripHeader }) {
                                         aria-label={`Ruolo di ${m.name}`}
                                         value={m.role}
                                         onChange={(e) => setRole(m, e.target.value as Role)}
-                                        className="h-9 rounded-[10px] border border-[#DAD8D1] bg-white px-2 text-xs font-bold"
+                                        className="h-9 rounded-[10px] border border-field bg-card px-2 text-xs font-bold"
                                     >
                                         {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
                                             <option key={r} value={r}>
@@ -114,7 +114,7 @@ function Group({ trip }: { trip: TripHeader }) {
                     <button
                         onClick={share}
                         disabled={!inviteUrl}
-                        className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-soft text-sm font-extrabold text-indigo-deep hover:bg-[#D8DDF8] disabled:opacity-60"
+                        className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-soft text-sm font-extrabold text-indigo-deep hover:bg-indigo-soft/70 disabled:opacity-60"
                     >
                         {copied ? <Check className="size-5" aria-hidden="true" /> : <Link2 className="size-5" aria-hidden="true" />}
                         {copied ? 'Link copiato' : 'Condividi link di invito'}
@@ -128,7 +128,7 @@ function Group({ trip }: { trip: TripHeader }) {
                 <p className="mt-3 text-[13px] text-mute">Per invitare qualcuno chiedi il link a un organizzatore.</p>
             )}
 
-            <p className="mt-6 rounded-2xl border border-dashed border-[#B9B7AF] p-4 text-[13px] text-mute">
+            <p className="mt-6 rounded-2xl border border-dashed border-dash p-4 text-[13px] text-mute">
                 Le modifiche degli altri compaiono in tempo reale. Presto: chi è online e sondaggi per decidere insieme.
             </p>
         </TripLayout>

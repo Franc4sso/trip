@@ -29,11 +29,11 @@ with t as (
         ('44444444-4444-4444-4444-444444444444'::uuid, 'viewer')
     ) as m(user_id, role)
 ), stays as (
-    insert into public.stays (trip_id, name, city, check_in, check_out, confirmed)
+    insert into public.stays (trip_id, name, city, check_in, check_out, confirmed, latitude, longitude)
     select t.id, s.* from t, (values
-        ('Hotel Gracery Shinjuku', 'Tokyo', '2026-11-03'::date, '2026-11-06'::date, true),
-        ('Ryokan a Higashiyama', 'Kyoto', '2026-11-06'::date, '2026-11-11'::date, true),
-        ('Hotel a Namba', 'Osaka', '2026-11-11'::date, '2026-11-16'::date, false)
+        ('Hotel Gracery Shinjuku', 'Tokyo', '2026-11-03'::date, '2026-11-06'::date, true, 35.6946, 139.7016),
+        ('Ryokan a Higashiyama', 'Kyoto', '2026-11-06'::date, '2026-11-11'::date, true, 34.9986, 135.7810),
+        ('Hotel a Namba', 'Osaka', '2026-11-11'::date, '2026-11-16'::date, false, 34.6655, 135.5010)
     ) as s
 )
 insert into public.activities (trip_id, date, start_time, duration_minutes, type, title, city, cost, booking_required, booking_deadline, booked)

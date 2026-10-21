@@ -44,6 +44,8 @@ export interface Activity {
     booking_deadline: string | null;
     booked: boolean;
     booking_url: string | null;
+    latitude: number | null;
+    longitude: number | null;
 }
 
 export interface Stay {
@@ -58,6 +60,8 @@ export interface Stay {
     booking_ref: string | null;
     cost: number | null;
     notes: string | null;
+    latitude: number | null;
+    longitude: number | null;
 }
 
 export interface Gap {
@@ -96,9 +100,9 @@ export interface Insights {
 
 export const ACTIVITY_TYPES: Record<ActivityType, { label: string; icon: LucideIcon; tint: string; bar: string }> = {
     visit: { label: 'Visita', icon: Camera, tint: 'bg-indigo-soft text-indigo', bar: 'bg-indigo' },
-    food: { label: 'Cibo', icon: UtensilsCrossed, tint: 'bg-[#FCEBD9] text-[#A85A12]', bar: 'bg-clay' },
-    transport: { label: 'Spostamento', icon: TrainFront, tint: 'bg-[#EEECE6] text-[#4A4B52]', bar: 'bg-stone' },
-    experience: { label: 'Esperienza', icon: Sparkles, tint: 'bg-[#EFE7FA] text-grape', bar: 'bg-grape' },
+    food: { label: 'Cibo', icon: UtensilsCrossed, tint: 'bg-clay-soft text-clay-ink', bar: 'bg-clay' },
+    transport: { label: 'Spostamento', icon: TrainFront, tint: 'bg-stone-soft text-stone-ink', bar: 'bg-stone' },
+    experience: { label: 'Esperienza', icon: Sparkles, tint: 'bg-grape-soft text-grape', bar: 'bg-grape' },
     shopping: { label: 'Shopping', icon: ShoppingBag, tint: 'bg-leaf-soft text-leaf', bar: 'bg-leaf' },
     note: { label: 'Nota', icon: NotebookPen, tint: 'bg-sun-soft text-sun-ink', bar: 'bg-sun-line' },
 };

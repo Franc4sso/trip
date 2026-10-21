@@ -2,41 +2,124 @@
 
 @import 'tw-animate-css';
 
-:root {
-    /* height kept free for the Netlify badge, see lib/netlify-badge.ts */
-    --badge-space: 0px;
-}
-
+/*
+ * Colours are semantic tokens: utilities read them through CSS variables, so the dark
+ * theme only redefines the variables. lib/theme.ts always sets <html data-theme>,
+ * resolving "system" through prefers-color-scheme.
+ */
 @theme {
     --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
 
-    /* Tabi palette (mockup «Taccuino chiaro») */
+    /* surfaces */
     --color-paper: #f3f2ee;
-    --color-ink: #16171b;
+    --color-card: #ffffff;
+    --color-sunken: #eeece6;
+    --color-hover: #f7f6f2;
     --color-line: #e3e1db;
+    --color-field: #dad8d1;
+    --color-dash: #b9b7af;
+    /* text */
+    --color-ink: #16171b;
+    --color-ink-2: #3f4047;
     --color-mute: #5f6068;
+    --color-faint: #8b8c93;
+    /* dark "hero" surfaces in both themes (trip card, night strip, ideas panel) */
+    --color-hero: #16171b;
+    --color-hero-2: #3a3b42;
+    --color-on-hero: #ffffff;
+    --color-on-hero-mute: #c9cad1;
+    /* accents: <name> fill, <name>-ink text on <name>-soft, on-<name> text on the fill */
     --color-indigo: #2f43c9;
     --color-indigo-deep: #1f2e94;
     --color-indigo-soft: #e6e9fb;
+    --color-on-indigo: #ffffff;
     --color-verm: #c7402a;
     --color-verm-ink: #a3311e;
     --color-verm-soft: #fbe9e5;
+    --color-on-verm: #ffffff;
     --color-sun-line: #d9a441;
     --color-sun-ink: #6b4600;
     --color-sun-soft: #fbf0d9;
     --color-leaf: #1f7a4d;
     --color-leaf-soft: #e3f2ea;
     --color-clay: #d9822b;
+    --color-clay-ink: #a85a12;
+    --color-clay-soft: #fcebd9;
     --color-grape: #7a4bc2;
+    --color-grape-soft: #efe7fa;
     --color-stone: #a3a5ac;
+    --color-stone-ink: #4a4b52;
+    --color-stone-soft: #eeece6;
 }
 
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @layer base {
+    :root {
+        color-scheme: light;
+        /* height kept free for the Netlify badge, see lib/netlify-badge.ts */
+        --badge-space: 0px;
+    }
+
+    :root[data-theme='dark'] {
+        color-scheme: dark;
+        --color-paper: #111216;
+        --color-card: #1b1c21;
+        --color-sunken: #24262d;
+        --color-hover: #22242a;
+        --color-line: #2c2e36;
+        --color-field: #3a3c45;
+        --color-dash: #4a4c55;
+        --color-ink: #ecedf0;
+        --color-ink-2: #c8cad2;
+        --color-mute: #9c9ea8;
+        --color-faint: #7d7f88;
+        --color-hero: #23252c;
+        --color-hero-2: #3a3c45;
+        --color-indigo: #8a98ff;
+        --color-indigo-deep: #b3bdff;
+        --color-indigo-soft: #23284a;
+        --color-on-indigo: #10142e;
+        --color-verm: #f07a63;
+        --color-verm-ink: #ff9c86;
+        --color-verm-soft: #3a1d18;
+        --color-on-verm: #2a0c05;
+        --color-sun-line: #8c6a23;
+        --color-sun-ink: #f2c76a;
+        --color-sun-soft: #33280f;
+        --color-leaf: #5fcb91;
+        --color-leaf-soft: #15301f;
+        --color-clay: #e0913d;
+        --color-clay-ink: #f0a964;
+        --color-clay-soft: #3a2716;
+        --color-grape: #a47be6;
+        --color-grape-soft: #2c2140;
+        --color-stone: #6f717a;
+        --color-stone-ink: #c3c5cc;
+        --color-stone-soft: #2a2b31;
+    }
+
     html {
         -webkit-tap-highlight-color: transparent;
+        background: var(--color-paper);
     }
+
     button:not(:disabled),
     [role='button']:not(:disabled) {
         cursor: pointer;
+    }
+
+    /* iOS gives date/time inputs an intrinsic width and a shorter empty height */
+    input[type='date'],
+    input[type='time'] {
+        -webkit-appearance: none;
+        appearance: none;
+        min-width: 0;
+        text-align: left;
+    }
+    input[type='date']::-webkit-date-and-time-value,
+    input[type='time']::-webkit-date-and-time-value {
+        text-align: left;
+        min-height: 1.5em;
     }
 }

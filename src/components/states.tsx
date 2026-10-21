@@ -18,7 +18,7 @@ export function ErrorScreen({ message }: { message: string }) {
         <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-paper px-6 text-center">
             <p className="text-lg font-extrabold">Non riesco ad aprire questa pagina</p>
             <p className="text-sm text-mute">{message}</p>
-            <Link to={paths.trips()} className="flex h-11 items-center rounded-2xl bg-ink px-5 text-sm font-bold text-white">
+            <Link to={paths.trips()} className="flex h-11 items-center rounded-2xl bg-ink px-5 text-sm font-bold text-paper">
                 Torna ai viaggi
             </Link>
         </div>

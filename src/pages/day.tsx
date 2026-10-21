@@ -70,6 +70,9 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
 
     const timed = activities.filter((a) => a.start_time);
     const untimed = activities.filter((a) => !a.start_time);
+    // suggest places around where we sleep, else around today's other activities
+    const anchor = stay?.latitude != null ? stay : activities.find((a) => a.latitude != null);
+    const near = anchor?.latitude != null && anchor.longitude != null ? { latitude: anchor.latitude, longitude: anchor.longitude } : null;
     const costPerHead = activities.reduce((sum, a) => sum + (a.cost ?? 0), 0);
 
     const openNew = (draft: ActivityDraft = {}) => setSheet({ open: true, activity: null, draft: { date: day.date, ...draft } });
@@ -112,11 +115,11 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
 
             <div className="mt-3 flex flex-wrap justify-center gap-2">
                 {day.city && <Chip className="bg-leaf-soft text-leaf">{day.city}</Chip>}
-                <Chip className={cn('border', day.load === 'full' ? 'border-verm bg-verm-soft text-verm-ink' : 'border-line bg-white text-ink')}>
+                <Chip className={cn('border', day.load === 'full' ? 'border-verm bg-verm-soft text-verm-ink' : 'border-line bg-card text-ink')}>
                     {day.planned_minutes > 0 ? `${formatMinutes(day.planned_minutes)} pianificate` : 'Niente in programma'}
                 </Chip>
                 {costPerHead > 0 && (
-                    <Chip className="border border-line bg-white text-ink">
+                    <Chip className="border border-line bg-card text-ink">
                         {costPerHead.toLocaleString('it-IT')} {trip.currency} a testa
                     </Chip>
                 )}
@@ -163,7 +166,7 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
             </ol>
 
             {stay && (
-                <div className="mt-3 flex items-center gap-2.5 rounded-[14px] bg-ink px-3 py-2.5 text-white sm:ml-[54px]">
+                <div className="mt-3 flex items-center gap-2.5 rounded-[14px] bg-hero px-3 py-2.5 text-on-hero sm:ml-[54px]">
                     <StayIcon className="size-5 shrink-0" aria-hidden="true" />
                     <p className="text-[13px]">
                         <b>Notte:</b> {stay.name} · {stay.city}
@@ -179,7 +182,7 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                     </h2>
                     <ul className="flex flex-col gap-2">
                         {ideas.slice(0, 6).map((idea) => (
-                            <li key={idea.id} className="flex items-center gap-3 rounded-2xl border border-line bg-white px-3.5 py-2.5">
+                            <li key={idea.id} className="flex items-center gap-3 rounded-2xl border border-line bg-card px-3.5 py-2.5">
                                 <span className="min-w-0 flex-1">
                                     <span className="block truncate text-sm font-bold">{idea.title}</span>
                                     <span className="block truncate text-xs text-mute">
@@ -187,7 +190,7 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                                         {idea.city && ` · ${idea.city}`}
                                     </span>
                                 </span>
-                                <button onClick={() => placeIdea(idea)} className="h-9 shrink-0 rounded-[10px] border border-[#DAD8D1] px-3 text-xs font-bold hover:bg-[#F3F2EE]">
+                                <button onClick={() => placeIdea(idea)} className="h-9 shrink-0 rounded-[10px] border border-field px-3 text-xs font-bold hover:bg-hover">
                                     + Oggi
                                 </button>
                             </li>
@@ -200,7 +203,7 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 <button
                     onClick={() => openNew()}
                     aria-label="Aggiungi attività"
-                    className="fixed right-5 bottom-[calc(max(env(safe-area-inset-bottom),0.75rem)+80px+var(--badge-space))] z-20 flex size-[58px] items-center justify-center rounded-[20px] bg-indigo text-white shadow-[0_10px_24px_rgba(47,67,201,0.35)] transition-transform active:scale-95 sm:right-[calc(50%-14rem+1.25rem)]"
+                    className="fixed right-5 bottom-[calc(max(env(safe-area-inset-bottom),0.75rem)+80px+var(--badge-space))] z-20 flex size-[58px] items-center justify-center rounded-[20px] bg-indigo text-paper shadow-[0_10px_24px_rgba(47,67,201,0.35)] transition-transform active:scale-95 sm:right-[calc(50%-14rem+1.25rem)]"
                 >
                     <Plus className="size-6" aria-hidden="true" />
                 </button>
@@ -212,6 +215,8 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 open={sheet.open}
                 activity={sheet.activity}
                 draft={sheet.draft}
+                near={near}
+                city={day.city}
                 onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
             />
         </TripLayout>
@@ -235,7 +240,7 @@ function ActivityCard({ activity: a, onOpen, editable }: { activity: Activity; o
         <button
             onClick={onOpen}
             disabled={!editable}
-            className="flex flex-1 gap-2.5 rounded-2xl border border-line bg-white px-3 py-2.5 text-left enabled:hover:bg-[#FAF9F6] disabled:cursor-default"
+            className="flex flex-1 gap-2.5 rounded-2xl border border-line bg-card px-3 py-2.5 text-left enabled:hover:bg-hover disabled:cursor-default"
         >
             <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-[10px]', meta.tint)} aria-hidden="true">
                 <Icon className="size-[18px]" />
@@ -275,11 +280,11 @@ function GapCard({ gap, ideas, canEdit, onFill, onPlace }: { gap: Gap; ideas: Ac
                 {canEdit && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                         {suggestion && (
-                            <button onClick={() => onPlace(suggestion)} className="h-8 max-w-full truncate rounded-[10px] bg-ink px-2.5 text-xs font-bold text-white">
+                            <button onClick={() => onPlace(suggestion)} className="h-8 max-w-full truncate rounded-[10px] bg-ink px-2.5 text-xs font-bold text-paper">
                                 + {suggestion.title}
                             </button>
                         )}
-                        <button onClick={onFill} className="h-8 rounded-[10px] border border-sun-line px-2.5 text-xs font-bold text-sun-ink hover:bg-[#F7E6C4]">
+                        <button onClick={onFill} className="h-8 rounded-[10px] border border-sun-line px-2.5 text-xs font-bold text-sun-ink hover:bg-sun-line/20">
                             Riempi
                         </button>
                     </div>

@@ -1,9 +1,12 @@
 import { BottomSheet } from '@/components/bottom-sheet';
+import { PlaceInput } from '@/components/place-input';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
+import { type Coordinates } from '@/lib/places';
 import { ACTIVITY_TYPES, formatDayMonth, formatWeekdayShort, type Activity, type ActivityType, type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
 import { cn } from '@/lib/utils';
+import { MapPin, X } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 
 export interface ActivityDraft {
@@ -18,11 +21,15 @@ interface Props {
     onOpenChange: (open: boolean) => void;
     activity?: Activity | null;
     draft?: ActivityDraft;
+    /** Bias place suggestions towards this point, e.g. tonight's stay. */
+    near?: Coordinates | null;
+    /** City of the day the sheet was opened from. */
+    city?: string | null;
 }
 
 const DURATIONS = [30, 60, 90, 120, 180, 240, 360];
 
-export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft }: Props) {
+export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft, near, city }: Props) {
     const [data, setData] = useState(initial);
     const { run, pending, error, clearError } = useAction();
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
@@ -32,7 +39,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft 
             type: (activity?.type ?? 'visit') as ActivityType,
             title: activity?.title ?? '',
             location: activity?.location ?? '',
-            city: activity?.city ?? '',
+            city: activity?.city ?? (activity ? '' : (city ?? '')),
             date: activity ? (activity.date ?? '') : (draft?.date ?? ''),
             start_time: activity?.start_time ?? draft?.start_time ?? '',
             duration_minutes: activity?.duration_minutes?.toString() ?? '60',
@@ -42,6 +49,8 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft 
             booking_deadline: activity?.booking_deadline ?? '',
             booking_url: activity?.booking_url ?? '',
             booked: activity?.booked ?? false,
+            latitude: activity?.latitude ?? null,
+            longitude: activity?.longitude ?? null,
         };
     }
 
@@ -106,7 +115,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft 
                                     onClick={() => set('type', type)}
                                     className={cn(
                                         'inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold transition-colors',
-                                        active ? 'border-ink bg-ink text-white' : 'border-[#DAD8D1] bg-white hover:bg-[#F3F2EE]',
+                                        active ? 'border-ink bg-ink text-paper' : 'border-field bg-card hover:bg-hover',
                                     )}
                                 >
                                     <Icon className="size-4" aria-hidden="true" />
@@ -117,18 +126,54 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft 
                     </div>
                 </fieldset>
 
-                <Field label="Cosa" htmlFor="act-title">
-                    <input id="act-title" className={inputClass} value={data.title} onChange={(e) => set('title', e.target.value)} placeholder="Kiyomizu-dera, cena di sushi…" required maxLength={200} />
+                <Field label="Cosa (scrivi un luogo per i suggerimenti)" htmlFor="act-title">
+                    <PlaceInput
+                        id="act-title"
+                        value={data.title}
+                        onChange={(title) => set('title', title)}
+                        onSelect={(place) =>
+                            setData((d) => ({
+                                ...d,
+                                title: place.name,
+                                location: place.address ?? place.detail,
+                                city: place.city ?? d.city,
+                                latitude: place.latitude,
+                                longitude: place.longitude,
+                            }))
+                        }
+                        near={near}
+                        city={data.city || city}
+                        placeholder="Kiyomizu-dera, cena di sushi…"
+                        required
+                        maxLength={200}
+                    />
+                    {data.location && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-mute">
+                            <MapPin className="size-3.5 shrink-0 text-indigo" aria-hidden="true" />
+                            <span className="min-w-0 truncate">{data.location}</span>
+                            <button
+                                type="button"
+                                aria-label="Togli il luogo"
+                                onClick={() => setData((d) => ({ ...d, location: '', latitude: null, longitude: null }))}
+                                className="-my-2 flex size-8 shrink-0 items-center justify-center rounded-lg hover:bg-hover"
+                            >
+                                <X className="size-3.5" aria-hidden="true" />
+                            </button>
+                        </p>
+                    )}
                 </Field>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Luogo" htmlFor="act-location">
-                        <input id="act-location" className={inputClass} value={data.location} onChange={(e) => set('location', e.target.value)} placeholder="Indirizzo o zona" />
-                    </Field>
-                    <Field label="Città" htmlFor="act-city">
-                        <input id="act-city" className={inputClass} value={data.city} onChange={(e) => set('city', e.target.value)} />
-                    </Field>
-                </div>
+                <Field label="Città" htmlFor="act-city">
+                    <PlaceInput
+                        id="act-city"
+                        kind="city"
+                        value={data.city}
+                        onChange={(city) => set('city', city)}
+                        onSelect={(place) => set('city', place.name)}
+                        near={near}
+                        maxLength={120}
+                    />
+                </Field>
 
                 <Field label="Giorno" htmlFor="act-date">
                     <select id="act-date" className={inputClass} value={data.date} onChange={(e) => set('date', e.target.value)}>
@@ -161,7 +206,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft 
                     <input id="act-cost" inputMode="numeric" className={inputClass} value={data.cost} onChange={(e) => set('cost', e.target.value.replace(/\D/g, ''))} />
                 </Field>
 
-                <div className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-3.5">
+                <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-3.5">
                     <label className="flex min-h-8 items-center justify-between text-sm font-bold">
                         Serve prenotare
                         <input type="checkbox" className="size-5 accent-indigo" checked={data.booking_required} onChange={(e) => set('booking_required', e.target.checked)} />
@@ -172,7 +217,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft 
                                 <Field label="Entro il" htmlFor="act-deadline">
                                     <input id="act-deadline" type="date" className={inputClass} value={data.booking_deadline} onChange={(e) => set('booking_deadline', e.target.value)} />
                                 </Field>
-                                <label className="mt-6 flex h-11 items-center justify-between gap-2 rounded-xl border border-[#DAD8D1] px-3 text-sm font-bold">
+                                <label className="mt-6 flex h-11 items-center justify-between gap-2 rounded-xl border border-field px-3 text-sm font-bold">
                                     Fatta
                                     <input type="checkbox" className="size-5 accent-leaf" checked={data.booked} onChange={(e) => set('booked', e.target.checked)} />
                                 </label>

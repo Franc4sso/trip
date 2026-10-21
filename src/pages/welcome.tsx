@@ -23,17 +23,17 @@ export default function Welcome() {
                 <p className="mt-3 text-base text-mute">Basta itinerari su Word: giorni, alloggi, prenotazioni e idee in un posto solo, condiviso con chi parte con te.</p>
 
                 <div className="mt-7 flex flex-col gap-2.5">
-                    <Link to={paths.register()} className="flex h-[52px] items-center justify-center rounded-2xl bg-indigo text-[15px] font-extrabold text-white hover:bg-indigo-deep">
+                    <Link to={paths.register()} className="flex h-[52px] items-center justify-center rounded-2xl bg-indigo text-[15px] font-extrabold text-paper hover:bg-indigo-deep">
                         Crea un account
                     </Link>
-                    <Link to={paths.login()} className="flex h-[52px] items-center justify-center rounded-2xl border border-line bg-white text-[15px] font-bold hover:bg-[#FAF9F6]">
+                    <Link to={paths.login()} className="flex h-[52px] items-center justify-center rounded-2xl border border-line bg-card text-[15px] font-bold hover:bg-hover">
                         Accedi
                     </Link>
                 </div>
 
                 <ul className="mt-10 flex flex-col gap-3">
                     {FEATURES.map(({ icon: Icon, title, text }) => (
-                        <li key={title} className="flex gap-3 rounded-[20px] border border-line bg-white p-4">
+                        <li key={title} className="flex gap-3 rounded-[20px] border border-line bg-card p-4">
                             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-indigo-soft text-indigo" aria-hidden="true">
                                 <Icon className="size-5" />
                             </span>

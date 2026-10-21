@@ -144,7 +144,7 @@ function TripShow({ trip, insights, stays }: Props) {
                                 <button
                                     disabled={!trip.can_edit}
                                     onClick={() => setStaySheet({ open: true, stay })}
-                                    className="flex w-full items-center gap-3 rounded-2xl border border-line bg-white px-3.5 py-3 text-left enabled:hover:bg-[#FAF9F6]"
+                                    className="flex w-full items-center gap-3 rounded-2xl border border-line bg-card px-3.5 py-3 text-left enabled:hover:bg-hover"
                                 >
                                     <span className={cn('w-1.5 self-stretch rounded', ['bg-indigo', 'bg-leaf', 'bg-clay', 'bg-grape'][i % 4])} aria-hidden="true" />
                                     <span className="min-w-0 flex-1">
@@ -160,13 +160,13 @@ function TripShow({ trip, insights, stays }: Props) {
                         {insights.uncovered_nights.length > 0 && (
                             <li className="flex items-center gap-3 rounded-2xl border border-dashed border-verm bg-verm-soft px-3.5 py-3">
                                 <span className="flex-1 text-sm">
-                                    <b className="block text-[#8E2A19]">Notti scoperte</b>
-                                    <span className="text-xs text-[#8E2A19]">{insights.uncovered_nights.slice(0, 4).map(formatDayMonth).join(', ')}</span>
+                                    <b className="block text-verm-ink">Notti scoperte</b>
+                                    <span className="text-xs text-verm-ink">{insights.uncovered_nights.slice(0, 4).map(formatDayMonth).join(', ')}</span>
                                 </span>
                                 {trip.can_edit && (
                                     <button
                                         onClick={() => setStaySheet({ open: true, checkIn: insights.uncovered_nights[0] })}
-                                        className="h-9 rounded-[10px] bg-verm px-3 text-xs font-bold text-white hover:bg-verm-ink"
+                                        className="h-9 rounded-[10px] bg-verm px-3 text-xs font-bold text-paper hover:bg-verm-ink"
                                     >
                                         Aggiungi
                                     </button>
@@ -209,7 +209,7 @@ function Todo({
             <span className="flex-1 text-left text-sm">{children}</span>
         </>
     );
-    const cls = 'flex w-full items-center gap-2.5 rounded-xl -mx-1 px-1 py-0.5 hover:bg-[#F7F6F2]';
+    const cls = 'flex w-full items-center gap-2.5 rounded-xl -mx-1 px-1 py-0.5 hover:bg-hover';
 
     return <li>{href ? <Link to={href} className={cls}>{inner}</Link> : <button onClick={onClick} className={cls}>{inner}</button>}</li>;
 }
@@ -222,13 +222,13 @@ function DayTile({ trip, day }: { trip: TripHeader; day: DayInsight }) {
     return (
         <Link to={paths.day(trip.id, day.date)}
             className={cn(
-                'flex w-[58px] shrink-0 snap-start flex-col items-center gap-1 rounded-[14px] border bg-white py-2',
+                'relative flex w-[58px] shrink-0 snap-start flex-col items-center gap-1 rounded-[14px] border bg-card py-2',
                 day.load === 'full' ? 'border-[1.5px] border-verm' : day.load === 'empty' ? 'border-dashed border-sun-line' : 'border-line',
             )}
         >
             <span className="text-[11px] font-semibold text-mute">{formatWeekdayShort(day.date)}</span>
             <span className="text-[17px] font-extrabold">{dayOfMonth(day.date)}</span>
-            <span className="flex h-11 w-7 flex-col justify-end overflow-hidden rounded-md bg-[#EEECE6]" aria-hidden="true">
+            <span className="flex h-11 w-7 flex-col justify-end overflow-hidden rounded-md bg-sunken" aria-hidden="true">
                 {BAR_ORDER.map((type) =>
                     day.minutes_by_type[type] ? <span key={type} className={ACTIVITY_TYPES[type].bar} style={{ height: `${(day.minutes_by_type[type]! / scale) * 100}%` }} /> : null,
                 )}

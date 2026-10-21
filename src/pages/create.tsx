@@ -1,3 +1,5 @@
+import { PlaceInput } from '@/components/place-input';
+import { addStop, lastStop } from '@/lib/places';
 import { ErrorScreen, WithTrip } from '@/components/states';
 import TripLayout from '@/components/trip-layout';
 import { Field, FormError, IconLink, inputClass, PrimaryButton } from '@/components/ui';
@@ -12,6 +14,7 @@ import { useNavigate, useParams } from 'react-router';
 
 const COLORS = ['#2F43C9', '#C7402A', '#1F7A4D', '#7A4BC2', '#A85A12', '#0E7490'];
 const MAX_DAYS = 90;
+
 
 export default function TripFormRoute() {
     const { tripId } = useParams();
@@ -70,7 +73,17 @@ function TripForm({ trip }: { trip?: TripHeader }) {
                     <input id="name" className={inputClass} value={data.name} onChange={(e) => set('name', e.target.value)} placeholder="Giappone" required maxLength={120} autoFocus={!trip} />
                 </Field>
                 <Field label="Dove (città o tappe)" htmlFor="destination">
-                    <input id="destination" className={inputClass} value={data.destination} onChange={(e) => set('destination', e.target.value)} placeholder="Tokyo, Kyoto, Osaka" maxLength={200} />
+                    <PlaceInput
+                        id="destination"
+                        kind="city"
+                        value={data.destination}
+                        onChange={(text) => set('destination', text)}
+                        onSelect={(place) => set('destination', addStop(data.destination, place.name))}
+                        queryOf={lastStop}
+                        placeholder="Tokyo, Kyoto, Osaka"
+                        maxLength={200}
+                    />
+                    <p className="mt-1 text-xs text-mute">Cerca una città e sceglila: si aggiunge alle tappe. Separa più tappe con una virgola.</p>
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                     <Field label="Partenza" htmlFor="start_date">
@@ -81,10 +94,10 @@ function TripForm({ trip }: { trip?: TripHeader }) {
                     </Field>
                 </div>
                 {trip && <p className="-mt-2 text-xs text-mute">Se accorci il viaggio, le attività dei giorni tolti restano salvate ma non compaiono nei giorni.</p>}
-                <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+                <div className="flex flex-col gap-4">
                     <fieldset>
                         <legend className="mb-1.5 text-xs font-bold text-mute">Colore</legend>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                             {COLORS.map((c) => (
                                 <button
                                     key={c}
@@ -99,7 +112,7 @@ function TripForm({ trip }: { trip?: TripHeader }) {
                         </div>
                     </fieldset>
                     <Field label="Valuta" htmlFor="currency">
-                        <select id="currency" className={cn(inputClass, 'w-24')} value={data.currency} onChange={(e) => set('currency', e.target.value)}>
+                        <select id="currency" className={inputClass} value={data.currency} onChange={(e) => set('currency', e.target.value)}>
                             {['EUR', 'JPY', 'USD', 'GBP', 'CHF'].map((c) => (
                                 <option key={c}>{c}</option>
                             ))}

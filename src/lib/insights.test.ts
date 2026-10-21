@@ -23,12 +23,14 @@ function activity(attrs: Partial<Activity>): Activity {
         booked: false,
         booking_url: null,
         created_by: null,
+        latitude: null,
+        longitude: null,
         ...attrs,
     };
 }
 
 function stay(attrs: Partial<Stay>): Stay {
-    return { id: nextId++, trip_id: 1, name: 'Hotel', city: 'Tokyo', address: null, check_in: '2026-11-03', check_out: '2026-11-04', confirmed: true, booking_ref: null, cost: null, notes: null, ...attrs };
+    return { id: nextId++, trip_id: 1, name: 'Hotel', city: 'Tokyo', address: null, check_in: '2026-11-03', check_out: '2026-11-04', confirmed: true, booking_ref: null, cost: null, notes: null, latitude: null, longitude: null, ...attrs };
 }
 
 const dayOf = (insights: ReturnType<typeof computeInsights>, date: string) => insights.days.find((d) => d.date === date)!;

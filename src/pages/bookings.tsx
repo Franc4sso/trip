@@ -54,7 +54,7 @@ function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
             <h1 className="text-[28px] font-extrabold tracking-tight">Prenotazioni</h1>
             {error && <p role="alert" className="mt-3 rounded-xl bg-verm-soft px-3 py-2 text-[13px] font-semibold text-verm-ink">{error}</p>}
 
-            <div role="tablist" className="mt-3.5 flex gap-1 rounded-[14px] bg-[#E8E6E0] p-1">
+            <div role="tablist" className="mt-3.5 flex gap-1 rounded-[14px] bg-sunken p-1">
                 {(
                     [
                         ['todo', `Da fare · ${todo.length}`],
@@ -67,7 +67,7 @@ function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
                         role="tab"
                         aria-selected={tab === key}
                         onClick={() => setTab(key)}
-                        className={cn('h-10 flex-1 rounded-xl text-[13px] font-bold', tab === key ? 'bg-white text-ink shadow-sm' : 'text-mute')}
+                        className={cn('h-10 flex-1 rounded-xl text-[13px] font-bold', tab === key ? 'bg-card text-ink shadow-sm' : 'text-mute')}
                     >
                         {label}
                     </button>
@@ -86,7 +86,7 @@ function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
                         />
                     ))}
                     {(tab === 'todo' ? todo : done).length === 0 && (
-                        <li className="rounded-[20px] border border-dashed border-[#B9B7AF] p-5 text-center text-sm text-mute">
+                        <li className="rounded-[20px] border border-dashed border-dash p-5 text-center text-sm text-mute">
                             {tab === 'todo' ? 'Niente da prenotare. Segna «Serve prenotare» su un\'attività per vederla qui.' : 'Ancora nessuna prenotazione fatta.'}
                         </li>
                     )}
@@ -114,7 +114,7 @@ function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
                                     <button
                                         disabled={!trip.can_edit}
                                         onClick={() => setStaySheet({ open: true, stay: s })}
-                                        className="flex w-full items-start gap-3 rounded-2xl border border-line bg-white px-3.5 py-3 text-left enabled:hover:bg-[#FAF9F6]"
+                                        className="flex w-full items-start gap-3 rounded-2xl border border-line bg-card px-3.5 py-3 text-left enabled:hover:bg-hover"
                                     >
                                         <span className="min-w-0 flex-1">
                                             <span className="block text-sm font-bold">{s.name}</span>
@@ -145,11 +145,11 @@ function BookingRow({ booking: b, canEdit, onToggle, onOpen }: { booking: Activi
     const urgent = !b.booked && deadline.urgent;
 
     return (
-        <li className={cn('flex items-start gap-3 rounded-2xl border bg-white px-3.5 py-3', urgent ? 'border-verm' : 'border-line')}>
+        <li className={cn('flex items-start gap-3 rounded-2xl border bg-card px-3.5 py-3', urgent ? 'border-verm' : 'border-line')}>
             <span
                 className={cn(
                     'w-[46px] shrink-0 rounded-xl py-1.5 text-center',
-                    b.booked ? 'bg-leaf-soft text-leaf' : urgent ? 'bg-verm text-white' : left !== null ? 'bg-sun-soft text-sun-ink' : 'bg-[#EEECE6] text-[#3F4047]',
+                    b.booked ? 'bg-leaf-soft text-leaf' : urgent ? 'bg-verm text-paper' : left !== null ? 'bg-sun-soft text-sun-ink' : 'bg-sunken text-ink-2',
                 )}
             >
                 <b className="block text-[17px] leading-tight font-extrabold">{b.booked ? '✓' : left === null ? '—' : Math.max(left, 0)}</b>
@@ -166,13 +166,13 @@ function BookingRow({ booking: b, canEdit, onToggle, onOpen }: { booking: Activi
                 </p>
                 <div className="mt-2 flex gap-1.5">
                     {b.booking_url && (
-                        <a href={b.booking_url} target="_blank" rel="noreferrer noopener" className="inline-flex h-8 items-center gap-1 rounded-[10px] bg-ink px-2.5 text-xs font-bold text-white">
+                        <a href={b.booking_url} target="_blank" rel="noreferrer noopener" className="inline-flex h-8 items-center gap-1 rounded-[10px] bg-ink px-2.5 text-xs font-bold text-paper">
                             Apri sito
                             <ExternalLink className="size-3.5" aria-hidden="true" />
                         </a>
                     )}
                     {canEdit && (
-                        <button onClick={onToggle} className="h-8 rounded-[10px] border border-[#DAD8D1] bg-white px-2.5 text-xs font-bold hover:bg-[#F3F2EE]">
+                        <button onClick={onToggle} className="h-8 rounded-[10px] border border-field bg-card px-2.5 text-xs font-bold hover:bg-hover">
                             {b.booked ? 'Segna da fare' : 'Segna fatta'}
                         </button>
                     )}
@@ -185,7 +185,7 @@ function BookingRow({ booking: b, canEdit, onToggle, onOpen }: { booking: Activi
 function StayTimeline({ trip, stays }: { trip: TripHeader; stays: Stay[] }) {
     const nights = Math.max(1, daysBetween(parseDate(trip.start_date), parseDate(trip.end_date)));
     const offset = (date: string) => (daysBetween(parseDate(trip.start_date), parseDate(date)) / nights) * 100;
-    const colors = ['bg-indigo', 'bg-leaf', 'bg-[#A85A12]', 'bg-grape'];
+    const colors = ['bg-indigo', 'bg-leaf', 'bg-clay-ink', 'bg-grape'];
 
     return (
         <Card className="p-3.5">
@@ -193,7 +193,7 @@ function StayTimeline({ trip, stays }: { trip: TripHeader; stays: Stay[] }) {
                 {stays.map((s, i) => (
                     <span
                         key={s.id}
-                        className={cn('absolute inset-y-0 flex items-center truncate px-1.5 text-[11px] font-extrabold text-white', colors[i % colors.length])}
+                        className={cn('absolute inset-y-0 flex items-center truncate px-1.5 text-[11px] font-extrabold text-paper', colors[i % colors.length])}
                         style={{ left: `${offset(s.check_in)}%`, width: `${offset(s.check_out) - offset(s.check_in)}%` }}
                     >
                         {s.city}

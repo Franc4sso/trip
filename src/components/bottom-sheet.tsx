@@ -16,15 +16,15 @@ export function BottomSheet({ open, onOpenChange, title, subtitle, children, foo
     return (
         <Dialog.Root open={open} onOpenChange={onOpenChange}>
             <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/45 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-                <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-[28px] bg-[#F7F6F2] text-ink shadow-2xl outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:bottom-6 sm:rounded-[28px]">
-                    <div className="mx-auto mt-2.5 h-[5px] w-10 shrink-0 rounded-full bg-[#CFCDC6]" aria-hidden="true" />
+                <Dialog.Overlay className="fixed inset-0 z-50 bg-black/55 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+                <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-[28px] bg-paper text-ink shadow-2xl outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom sm:bottom-6 sm:rounded-[28px]">
+                    <div className="mx-auto mt-2.5 h-[5px] w-10 shrink-0 rounded-full bg-field" aria-hidden="true" />
                     <div className="flex shrink-0 items-center justify-between px-5 pt-3 pb-2">
                         <div>
                             <Dialog.Title className="text-xl font-extrabold">{title}</Dialog.Title>
                             {subtitle ? <Dialog.Description className="text-[13px] text-mute">{subtitle}</Dialog.Description> : <Dialog.Description className="sr-only">{title}</Dialog.Description>}
                         </div>
-                        <Dialog.Close aria-label="Chiudi" className="flex size-11 items-center justify-center rounded-[14px] border border-line bg-white hover:bg-[#F3F2EE]">
+                        <Dialog.Close aria-label="Chiudi" className="flex size-11 items-center justify-center rounded-[14px] border border-line bg-card hover:bg-hover">
                             <X className="size-5" aria-hidden="true" />
                         </Dialog.Close>
                     </div>

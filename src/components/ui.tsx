@@ -20,7 +20,7 @@ export function AvatarStack({ members, ring = 'ring-paper', max = 4 }: { members
                 </span>
             ))}
             {extra > 0 && (
-                <span aria-hidden="true" className={cn('-ml-2 flex size-7 items-center justify-center rounded-full bg-[#DAD8D1] text-[11px] font-bold text-mute ring-2', ring)}>
+                <span aria-hidden="true" className={cn('-ml-2 flex size-7 items-center justify-center rounded-full bg-field text-[11px] font-bold text-mute ring-2', ring)}>
                     +{extra}
                 </span>
             )}
@@ -32,7 +32,7 @@ export function IconLink({ label, className, children, ...props }: ComponentProp
     return (
         <Link
             aria-label={label}
-            className={cn('flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-line bg-white text-ink transition-colors hover:bg-[#F7F6F2]', className)}
+            className={cn('flex size-11 shrink-0 items-center justify-center rounded-[14px] border border-line bg-card text-ink transition-colors hover:bg-hover', className)}
             {...props}
         >
             {children}
@@ -45,7 +45,7 @@ export function Chip({ className, children }: { className?: string; children: Re
 }
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-    return <div className={cn('rounded-[20px] border border-line bg-white p-4', className)}>{children}</div>;
+    return <div className={cn('rounded-[20px] border border-line bg-card p-4', className)}>{children}</div>;
 }
 
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
@@ -61,7 +61,7 @@ export function PrimaryButton({ className, ...props }: ComponentProps<'button'>)
     return (
         <button
             className={cn(
-                'flex h-[52px] items-center justify-center gap-2 rounded-2xl bg-indigo px-5 text-[15px] font-extrabold text-white transition-colors hover:bg-indigo-deep disabled:opacity-60',
+                'flex h-[52px] items-center justify-center gap-2 rounded-2xl bg-indigo px-5 text-[15px] font-extrabold text-paper transition-colors hover:bg-indigo-deep disabled:opacity-60',
                 className,
             )}
             {...props}
@@ -82,7 +82,7 @@ export function Field({ label, error, children, htmlFor }: { label: string; erro
 }
 
 export const inputClass =
-    'h-11 w-full rounded-xl border border-[#DAD8D1] bg-white px-3 text-base text-ink outline-none transition-shadow placeholder:text-[#8B8C93] focus:border-indigo focus:ring-3 focus:ring-indigo-soft sm:text-sm';
+    'h-11 w-full rounded-xl border border-field bg-card px-3 text-base text-ink outline-none transition-shadow placeholder:text-faint focus:border-indigo focus:ring-3 focus:ring-indigo-soft sm:text-sm';
 
 export function FormError({ message }: { message: string | null }) {
     if (!message) return null;

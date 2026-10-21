@@ -1,4 +1,5 @@
 import { BottomSheet } from '@/components/bottom-sheet';
+import { PlaceInput } from '@/components/place-input';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
 import { type Stay, type TripHeader } from '@/lib/trip';
@@ -29,6 +30,8 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
             confirmed: stay?.confirmed ?? false,
             booking_ref: stay?.booking_ref ?? '',
             cost: stay?.cost?.toString() ?? '',
+            latitude: stay?.latitude ?? null,
+            longitude: stay?.longitude ?? null,
         };
     }
 
@@ -72,17 +75,29 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
         >
             <form id="stay-form" onSubmit={submit} className="flex flex-col gap-4">
                 <FormError message={error} />
-                <Field label="Nome" htmlFor="stay-name">
-                    <input id="stay-name" className={inputClass} value={data.name} onChange={(e) => set('name', e.target.value)} placeholder="Hotel, ryokan, Airbnb…" required maxLength={200} />
+                <Field label="Nome (cerca l'hotel per compilare indirizzo e città)" htmlFor="stay-name">
+                    <PlaceInput
+                        id="stay-name"
+                        value={data.name}
+                        onChange={(name) => set('name', name)}
+                        onSelect={(place) =>
+                            setData((d) => ({
+                                ...d,
+                                name: place.name,
+                                city: place.city ?? d.city,
+                                address: place.address ?? place.detail,
+                                latitude: place.latitude,
+                                longitude: place.longitude,
+                            }))
+                        }
+                        placeholder="Hotel, ryokan, Airbnb…"
+                        required
+                        maxLength={200}
+                    />
                 </Field>
-                <div className="grid grid-cols-2 gap-3">
-                    <Field label="Città" htmlFor="stay-city">
-                        <input id="stay-city" className={inputClass} value={data.city} onChange={(e) => set('city', e.target.value)} required maxLength={120} />
-                    </Field>
-                    <Field label="Costo totale" htmlFor="stay-cost">
-                        <input id="stay-cost" inputMode="numeric" className={inputClass} value={data.cost} onChange={(e) => set('cost', e.target.value.replace(/\D/g, ''))} placeholder={trip.currency} />
-                    </Field>
-                </div>
+                <Field label="Città" htmlFor="stay-city">
+                    <PlaceInput id="stay-city" kind="city" value={data.city} onChange={(city) => set('city', city)} onSelect={(place) => set('city', place.name)} required maxLength={120} />
+                </Field>
                 <div className="grid grid-cols-2 gap-3">
                     <Field label="Check-in" htmlFor="stay-in">
                         <input id="stay-in" type="date" min={trip.start_date} max={trip.end_date} className={inputClass} value={data.check_in} onChange={(e) => set('check_in', e.target.value)} required />
@@ -94,10 +109,15 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
                 <Field label="Indirizzo" htmlFor="stay-address">
                     <input id="stay-address" className={inputClass} value={data.address} onChange={(e) => set('address', e.target.value)} maxLength={255} />
                 </Field>
-                <Field label="Codice prenotazione" htmlFor="stay-ref">
-                    <input id="stay-ref" className={inputClass} value={data.booking_ref} onChange={(e) => set('booking_ref', e.target.value)} maxLength={120} />
-                </Field>
-                <label className="flex min-h-11 items-center justify-between rounded-2xl border border-line bg-white px-4 text-sm font-bold">
+                <div className="grid grid-cols-2 gap-3">
+                    <Field label={`Costo totale (${trip.currency})`} htmlFor="stay-cost">
+                        <input id="stay-cost" inputMode="numeric" className={inputClass} value={data.cost} onChange={(e) => set('cost', e.target.value.replace(/\D/g, ''))} />
+                    </Field>
+                    <Field label="Codice prenotazione" htmlFor="stay-ref">
+                        <input id="stay-ref" className={inputClass} value={data.booking_ref} onChange={(e) => set('booking_ref', e.target.value)} maxLength={120} />
+                    </Field>
+                </div>
+                <label className="flex min-h-11 items-center justify-between rounded-2xl border border-line bg-card px-4 text-sm font-bold">
                     Prenotazione confermata
                     <input type="checkbox" className="size-5 accent-indigo" checked={data.confirmed} onChange={(e) => set('confirmed', e.target.checked)} />
                 </label>

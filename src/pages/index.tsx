@@ -7,8 +7,9 @@ import { computeInsights } from '@/lib/insights';
 import { paths } from '@/lib/paths';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { countdown, formatRange, type DayLoad, type TripHeader } from '@/lib/trip';
+import { setTheme, useTheme, type ThemeChoice } from '@/lib/theme';
 import { cn } from '@/lib/utils';
-import { ChevronRight, LogOut, Plus } from 'lucide-react';
+import { ChevronRight, LogOut, Monitor, Moon, Plus, Sun } from 'lucide-react';
 import { Link } from 'react-router';
 
 type TripCard = TripHeader & { day_loads: DayLoad[]; empty_days: number; pending_bookings: number };
@@ -46,16 +47,17 @@ export default function TripsIndex() {
                     <div>
                         <p className="flex items-center gap-1 text-[13px] font-semibold text-mute">
                             Ciao {user.name.split(' ')[0]}
-                            <button onClick={() => supabase.auth.signOut()} aria-label="Esci" className="-my-2 flex size-9 items-center justify-center rounded-lg hover:bg-white">
+                            <button onClick={() => supabase.auth.signOut()} aria-label="Esci" className="-my-2 flex size-9 items-center justify-center rounded-lg hover:bg-card">
                                 <LogOut className="size-3.5" aria-hidden="true" />
                             </button>
+                            <ThemeButton />
                         </p>
                         <h1 className="mt-0.5 text-[30px] font-extrabold tracking-tight">I tuoi viaggi</h1>
                     </div>
                     <Link
                         to={paths.newTrip()}
                         aria-label="Nuovo viaggio"
-                        className="flex size-12 items-center justify-center rounded-2xl bg-ink text-white transition-transform active:scale-95"
+                        className="flex size-12 items-center justify-center rounded-2xl bg-ink text-paper transition-transform active:scale-95"
                     >
                         <Plus className="size-5" aria-hidden="true" />
                     </Link>
@@ -74,13 +76,13 @@ function HeroTrip({ trip }: { trip: TripCard }) {
     const planned = trip.day_loads.filter((l) => l !== 'empty').length;
 
     return (
-        <Link to={paths.trip(trip.id)} className="block rounded-3xl bg-ink p-5 text-white transition-transform active:scale-[0.99]">
+        <Link to={paths.trip(trip.id)} className="block rounded-3xl bg-hero p-5 text-on-hero transition-transform active:scale-[0.99]">
             <div className="flex items-start justify-between">
                 <p className="text-xs font-bold tracking-[0.08em] text-[#B9C1FF] uppercase">{countdown(trip)}</p>
-                <AvatarStack members={trip.members} ring="ring-ink" />
+                <AvatarStack members={trip.members} ring="ring-hero" />
             </div>
             <h2 className="mt-3.5 text-[34px] leading-tight font-extrabold tracking-tight">{trip.name}</h2>
-            <p className="mt-0.5 text-sm text-[#C9CAD1]">
+            <p className="mt-0.5 text-sm text-on-hero-mute">
                 {formatRange(trip.start_date, trip.end_date)}
                 {trip.destination && ` · ${trip.destination}`}
             </p>
@@ -90,7 +92,7 @@ function HeroTrip({ trip }: { trip: TripCard }) {
                     <span key={i} className={cn('h-2 flex-1 rounded', LOAD_BAR[load])} />
                 ))}
             </div>
-            <div className="mt-2 flex justify-between text-xs text-[#C9CAD1]">
+            <div className="mt-2 flex justify-between text-xs text-on-hero-mute">
                 <span>
                     {planned} di {trip.day_loads.length} giorni pianificati
                 </span>
@@ -108,6 +110,31 @@ function HeroTrip({ trip }: { trip: TripCard }) {
     );
 }
 
+const THEMES: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
+    { value: 'system', label: 'Tema automatico', icon: Monitor },
+    { value: 'light', label: 'Tema chiaro', icon: Sun },
+    { value: 'dark', label: 'Tema scuro', icon: Moon },
+];
+
+/** Cycles automatico → chiaro → scuro. */
+function ThemeButton() {
+    const theme = useTheme();
+    const index = THEMES.findIndex((t) => t.value === theme);
+    const { label, icon: Icon } = THEMES[index];
+    const next = THEMES[(index + 1) % THEMES.length];
+
+    return (
+        <button
+            onClick={() => setTheme(next.value)}
+            aria-label={`${label}. Passa a: ${next.label.toLowerCase()}`}
+            title={label}
+            className="-my-2 flex size-9 items-center justify-center rounded-lg hover:bg-card"
+        >
+            <Icon className="size-3.5" aria-hidden="true" />
+        </button>
+    );
+}
+
 function TripList({ title, trips }: { title: string; trips: TripCard[] }) {
     return (
         <section>
@@ -115,7 +142,7 @@ function TripList({ title, trips }: { title: string; trips: TripCard[] }) {
             <ul className="flex flex-col gap-2.5">
                 {trips.map((trip) => (
                     <li key={trip.id}>
-                        <Link to={paths.trip(trip.id)} className="flex items-center gap-3 rounded-[18px] border border-line bg-white px-4 py-3.5 hover:bg-[#FAF9F6]">
+                        <Link to={paths.trip(trip.id)} className="flex items-center gap-3 rounded-[18px] border border-line bg-card px-4 py-3.5 hover:bg-hover">
                             <span
                                 aria-hidden="true"
                                 className="flex size-10 items-center justify-center rounded-xl text-[13px] font-extrabold text-white"
@@ -140,12 +167,12 @@ function TripList({ title, trips }: { title: string; trips: TripCard[] }) {
 
 function EmptyState() {
     return (
-        <div className="rounded-3xl border border-dashed border-[#B9B7AF] p-6 text-center">
+        <div className="rounded-3xl border border-dashed border-dash p-6 text-center">
             <h2 className="text-lg font-extrabold">Nessun viaggio in programma</h2>
             <p className="mt-1 text-sm text-mute">Crea il primo e invita i tuoi amici a pianificarlo con te.</p>
             <Link
                 to={paths.newTrip()}
-                className="mt-4 inline-flex h-12 items-center gap-2 rounded-2xl bg-indigo px-5 text-sm font-extrabold text-white hover:bg-indigo-deep"
+                className="mt-4 inline-flex h-12 items-center gap-2 rounded-2xl bg-indigo px-5 text-sm font-extrabold text-paper hover:bg-indigo-deep"
             >
                 <Plus className="size-4" aria-hidden="true" />
                 Nuovo viaggio

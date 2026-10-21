@@ -7,8 +7,8 @@ import type { Activity, Member, Role, Stay, Trip, TripHeader } from './trip';
 // invite_token is not selectable: always list trip columns explicitly
 const TRIP_COLUMNS = 'id, name, destination, start_date, end_date, color, currency';
 const ACTIVITY_COLUMNS =
-    'id, trip_id, created_by, date, start_time, duration_minutes, type, title, location, city, notes, cost, booking_required, booking_deadline, booked, booking_url';
-const STAY_COLUMNS = 'id, trip_id, name, city, address, check_in, check_out, confirmed, booking_ref, cost, notes';
+    'id, trip_id, created_by, date, start_time, duration_minutes, type, title, location, city, notes, cost, booking_required, booking_deadline, booked, booking_url, latitude, longitude';
+const STAY_COLUMNS = 'id, trip_id, name, city, address, check_in, check_out, confirmed, booking_ref, cost, notes, latitude, longitude';
 const MEMBER_COLUMNS = 'user_id, role, created_at, profiles(name)';
 
 export interface TripData {

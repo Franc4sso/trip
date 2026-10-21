@@ -9,7 +9,7 @@ import { Link } from 'react-router';
 import { ChevronLeft } from 'lucide-react';
 
 const ORDER: ActivityType[] = ['visit', 'food', 'experience', 'shopping', 'transport'];
-const CITY_COLORS = ['bg-indigo', 'bg-leaf', 'bg-[#A85A12]', 'bg-grape', 'bg-[#0E7490]'];
+const CITY_COLORS = ['bg-indigo', 'bg-leaf', 'bg-clay-ink', 'bg-grape', 'bg-verm'];
 
 export default function BalanceRoute() {
     return <WithTrip>{({ trip, activities, stays }) => <Balance trip={trip} insights={computeInsights(trip, activities, stays)} />}</WithTrip>;
@@ -48,7 +48,7 @@ function Balance({ trip, insights }: { trip: TripHeader; insights: Insights }) {
                         <li key={day.date}>
                             <Link to={paths.day(trip.id, day.date)}
                                 className={cn(
-                                    '-mx-1.5 flex h-6 items-center gap-2 rounded-md px-1.5 hover:bg-[#F3F2EE]',
+                                    '-mx-1.5 flex h-6 items-center gap-2 rounded-md px-1.5 hover:bg-hover',
                                     day.load === 'full' && 'bg-verm-soft',
                                     day.load === 'empty' && 'bg-sun-soft',
                                 )}
@@ -81,7 +81,7 @@ function Balance({ trip, insights }: { trip: TripHeader; insights: Insights }) {
                 {insights.full_days.length > 0 && busiest && (
                     <Card className="px-3.5 py-3">
                         <p className="text-[13px] font-extrabold text-verm-ink">{formatDayMonth(busiest.date)} è troppo pieno</p>
-                        <p className="mt-0.5 text-[13px] text-[#3F4047]">
+                        <p className="mt-0.5 text-[13px] text-ink-2">
                             {formatMinutes(busiest.planned_minutes)} di attività.
                             {insights.empty_days.length > 0 && ` Sposta qualcosa al ${insights.empty_days.slice(0, 2).map(formatDayMonth).join(' o al ')}: sono liberi.`}
                         </p>
@@ -105,7 +105,7 @@ function Balance({ trip, insights }: { trip: TripHeader; insights: Insights }) {
                 {insights.city_nights.length > 0 && (
                     <Card className="px-3.5 py-3">
                         <p className="text-[13px] font-extrabold">Notti per città</p>
-                        <div className="mt-2 flex h-[26px] overflow-hidden rounded-lg text-[11px] font-extrabold text-white">
+                        <div className="mt-2 flex h-[26px] overflow-hidden rounded-lg text-[11px] font-extrabold text-paper">
                             {insights.city_nights.map((c, i) => (
                                 <span key={c.city} className={cn('flex min-w-0 items-center truncate px-2', CITY_COLORS[i % CITY_COLORS.length])} style={{ width: `${(c.nights / totalNights) * 100}%` }}>
                                     {c.city} {c.nights}
