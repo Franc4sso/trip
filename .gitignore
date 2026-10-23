@@ -28,3 +28,6 @@ supabase/.temp
 supabase/.branches
 dev-dist
 supabase/functions/.env
+
+# browser test artifacts
+.playwright-mcp

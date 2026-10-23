@@ -1,7 +1,7 @@
 import { inputClass } from '@/components/ui';
 import { searchPlaces, type Coordinates, type Place, type PlaceKind } from '@/lib/places';
 import { cn } from '@/lib/utils';
-import { Loader2, MapPin } from 'lucide-react';
+import { Loader2, MapPin, Sparkles } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 interface Props {
@@ -21,26 +21,33 @@ interface Props {
     required?: boolean;
     maxLength?: number;
     autoFocus?: boolean;
+    /** Offer "ask the AI" when the map has nothing, or not the right place. */
+    onAskAi?: () => void;
 }
 
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 300;
 
 /** Text input with real-place suggestions (accessible combobox). */
-export function PlaceInput({ id, value, onChange, onSelect, kind = 'any', near, city, queryOf, placeholder, required, maxLength, autoFocus }: Props) {
+export function PlaceInput({ id, value, onChange, onSelect, kind = 'any', near, city, queryOf, placeholder, required, maxLength, autoFocus, onAskAi }: Props) {
     const listId = useId();
     const [results, setResults] = useState<Place[]>([]);
     const [open, setOpen] = useState(false);
     const [active, setActive] = useState(-1);
     const [loading, setLoading] = useState(false);
     const [failed, setFailed] = useState(false);
+    // the query the current results answer, to tell "nothing found" from "not searched yet"
+    const [searched, setSearched] = useState<string | null>(null);
     // only search after the user types, not when the field is pre-filled
     const typed = useRef(false);
 
+    const query = (queryOf ? queryOf(value) : value).trim();
+
     useEffect(() => {
-        const q = (queryOf ? queryOf(value) : value).trim();
+        const q = query;
         if (!typed.current || q.length < MIN_CHARS) {
             setResults([]);
+            setSearched(null);
             setLoading(false);
             return;
         }
@@ -50,6 +57,7 @@ export function PlaceInput({ id, value, onChange, onSelect, kind = 'any', near, 
             try {
                 const found = await searchPlaces(q, { kind, near, city, signal: controller.signal });
                 setResults(found);
+                setSearched(q);
                 setFailed(false);
                 setActive(-1);
                 setOpen(true);
@@ -69,7 +77,13 @@ export function PlaceInput({ id, value, onChange, onSelect, kind = 'any', near, 
         typed.current = false;
         setOpen(false);
         setResults([]);
+        setSearched(null);
         onSelect(place);
+    };
+
+    const askAi = () => {
+        setOpen(false);
+        onAskAi?.();
     };
 
     const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -90,6 +104,7 @@ export function PlaceInput({ id, value, onChange, onSelect, kind = 'any', near, 
     };
 
     const showList = open && results.length > 0;
+    const nothingFound = !!onAskAi && !loading && results.length === 0 && searched === query;
 
     return (
         <div className="relative">
@@ -139,10 +154,33 @@ export function PlaceInput({ id, value, onChange, onSelect, kind = 'any', near, 
                             </span>
                         </li>
                     ))}
+                    {onAskAi && (
+                        <li
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={askAi}
+                            className="mx-1.5 mt-1 flex cursor-pointer items-center gap-2.5 rounded-lg border-t border-line px-1.5 py-2.5 text-sm font-bold text-indigo hover:bg-hover"
+                        >
+                            <Sparkles className="size-4 shrink-0" aria-hidden="true" />
+                            Non è nessuno di questi? Chiedi all'AI
+                        </li>
+                    )}
                     <li className="px-3 pt-1 pb-1.5 text-[10px] text-faint" aria-hidden="true">
                         Dati © OpenStreetMap
                     </li>
                 </ul>
+            )}
+            {nothingFound && (
+                <div className="mt-1.5 flex items-center justify-between gap-2 rounded-xl bg-sunken py-1.5 pr-1.5 pl-3">
+                    <p className="min-w-0 text-xs text-mute">Nessun luogo trovato sulla mappa.</p>
+                    <button
+                        type="button"
+                        onClick={askAi}
+                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[10px] bg-indigo px-2.5 text-xs font-bold text-on-indigo hover:bg-indigo-deep"
+                    >
+                        <Sparkles className="size-3.5" aria-hidden="true" />
+                        Chiedi all'AI
+                    </button>
+                </div>
             )}
             {failed && <p className="mt-1 text-xs text-mute">Suggerimenti non disponibili ora: puoi scrivere il luogo a mano.</p>}
         </div>

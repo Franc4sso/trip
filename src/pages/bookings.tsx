@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import { computeInsights, tripDays } from '@/lib/insights';
 import { useAction } from '@/lib/use-action';
 import { ActivitySheet } from '@/components/activity-sheet';
+import { DocumentsPanel } from '@/components/documents-panel';
 import { StaySheet } from '@/components/stay-sheet';
 import { Card, Chip, SectionTitle } from '@/components/ui';
 import TripLayout from '@/components/trip-layout';
@@ -14,11 +15,12 @@ import { useMemo, useState } from 'react';
 interface Props {
     trip: TripHeader;
     bookings: Activity[];
+    activities: Activity[];
     stays: Stay[];
     uncovered_nights: string[];
 }
 
-type Tab = 'todo' | 'done' | 'stays';
+type Tab = 'todo' | 'done' | 'stays' | 'docs';
 
 export default function BookingsRoute() {
     return (
@@ -29,6 +31,7 @@ export default function BookingsRoute() {
                     bookings={activities
                         .filter((a) => a.booking_required)
                         .sort((a, b) => (a.booking_deadline ?? '9999').localeCompare(b.booking_deadline ?? '9999'))}
+                    activities={activities}
                     stays={stays}
                     uncovered_nights={computeInsights(trip, activities, stays).uncovered_nights}
                 />
@@ -37,7 +40,7 @@ export default function BookingsRoute() {
     );
 }
 
-function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
+function Bookings({ trip, bookings, activities, stays, uncovered_nights }: Props) {
     const { run, error } = useAction();
     const [tab, setTab] = useState<Tab>('todo');
     const [activitySheet, setActivitySheet] = useState<{ open: boolean; activity?: Activity }>({ open: false });
@@ -60,6 +63,7 @@ function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
                         ['todo', `Da fare · ${todo.length}`],
                         ['done', `Fatte · ${done.length}`],
                         ['stays', 'Alloggi'],
+                        ['docs', 'Biglietti'],
                     ] as [Tab, string][]
                 ).map(([key, label]) => (
                     <button
@@ -74,7 +78,7 @@ function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
                 ))}
             </div>
 
-            {tab !== 'stays' && (
+            {(tab === 'todo' || tab === 'done') && (
                 <ul className="mt-3.5 flex flex-col gap-2">
                     {(tab === 'todo' ? todo : done).map((b) => (
                         <BookingRow
@@ -134,7 +138,9 @@ function Bookings({ trip, bookings, stays, uncovered_nights }: Props) {
                 </div>
             )}
 
-            <ActivitySheet trip={trip} days={days} open={activitySheet.open} activity={activitySheet.activity} onOpenChange={(open) => setActivitySheet((s) => ({ ...s, open }))} />
+            {tab === 'docs' && <DocumentsPanel trip={trip} activities={activities} stays={stays} />}
+
+            <ActivitySheet trip={trip} days={days} stays={stays} open={activitySheet.open} activity={activitySheet.activity} onOpenChange={(open) => setActivitySheet((s) => ({ ...s, open }))} />
             <StaySheet trip={trip} open={staySheet.open} stay={staySheet.stay} checkIn={staySheet.checkIn} onOpenChange={(open) => setStaySheet((s) => ({ ...s, open }))} />
         </TripLayout>
     );

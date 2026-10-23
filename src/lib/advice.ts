@@ -14,7 +14,7 @@ const SuggestedActivity = z.object({
     date: z.string().nullable().describe('YYYY-MM-DD dentro le date del viaggio, oppure null per la lista idee'),
     start_time: z.string().nullable().describe('HH:MM, oppure null'),
     duration_minutes: z.number().int().nullable(),
-    type: z.enum(['visit', 'food', 'transport', 'experience', 'shopping', 'note']),
+    type: z.enum(['visit', 'food', 'transport', 'experience', 'shopping', 'hotel', 'note']),
     city: z.string().nullable(),
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeInsights, dayStays } from './insights';
+import { clashesOn, computeInsights, dayEndsAt, dayStays, hotelOn } from './insights';
 import type { Activity, Stay } from './trip';
 
 const trip = { start_date: '2026-11-03', end_date: '2026-11-06' };
@@ -120,5 +120,59 @@ describe('dayStays', () => {
     it('has no morning stay on the first day and no night stay on the last', () => {
         expect(dayStays([tokyo, kyoto], '2026-11-03')).toEqual({ morning: undefined, night: tokyo });
         expect(dayStays([tokyo, kyoto], '2026-11-11')).toEqual({ morning: kyoto, night: undefined });
+    });
+});
+
+describe('back to the hotel', () => {
+    const tokyo = stay({ name: 'Gracery', check_in: '2026-11-03', check_out: '2026-11-05' });
+    const kyoto = stay({ name: 'Ryokan', city: 'Kyoto', check_in: '2026-11-05', check_out: '2026-11-06' });
+
+    it("is not planned time, but closes the gap it fills", () => {
+        const day = dayOf(
+            computeInsights(trip, [
+                activity({ date: '2026-11-04', start_time: '09:00', duration_minutes: 180 }),
+                activity({ date: '2026-11-04', start_time: '12:00', duration_minutes: 180, type: 'hotel' }),
+                activity({ date: '2026-11-04', start_time: '15:00', duration_minutes: 60 }),
+            ], []),
+            '2026-11-04',
+        );
+        expect(day.planned_minutes).toBe(240);
+        expect(day.activity_count).toBe(2);
+        expect(day.gaps).toEqual([]);
+    });
+
+    it('does not make an otherwise empty day look planned', () => {
+        const day = dayOf(computeInsights(trip, [activity({ date: '2026-11-04', start_time: '18:00', type: 'hotel' })], []), '2026-11-04');
+        expect(day.load).toBe('empty');
+    });
+
+    it("goes to tonight's hotel, or last night's on check-out day", () => {
+        expect(hotelOn([tokyo, kyoto], '2026-11-04')).toBe(tokyo);
+        expect(hotelOn([tokyo, kyoto], '2026-11-05')).toBe(kyoto);
+        expect(hotelOn([tokyo, kyoto], '2026-11-06')).toBe(kyoto);
+        expect(hotelOn([kyoto], '2026-11-03')).toBeUndefined();
+    });
+
+    it('starts when the last timed activity ends', () => {
+        expect(dayEndsAt([])).toBeNull();
+        expect(dayEndsAt([activity({ start_time: '09:00', duration_minutes: 90 }), activity({ start_time: '19:30', duration_minutes: 120 }), activity({ start_time: null })])).toBe('21:30');
+        expect(dayEndsAt([activity({ start_time: '23:00', duration_minutes: 180 })])).toBe('23:55');
+    });
+});
+
+describe('moving to another day', () => {
+    const moving = activity({ date: '2026-11-03', start_time: '10:00', duration_minutes: 120 });
+
+    it('clashes with what overlaps its time on the target day', () => {
+        const before = activity({ date: '2026-11-04', start_time: '09:00', duration_minutes: 90 });
+        const after = activity({ date: '2026-11-04', start_time: '12:00' });
+        const elsewhere = activity({ date: '2026-11-05', start_time: '10:00' });
+        expect(clashesOn([moving, before, after, elsewhere], moving, '2026-11-04')).toEqual([before]);
+    });
+
+    it('never clashes without a time, or with notes', () => {
+        const note = activity({ date: '2026-11-04', start_time: '10:30', type: 'note' });
+        expect(clashesOn([note], moving, '2026-11-04')).toEqual([]);
+        expect(clashesOn([activity({ date: '2026-11-04', start_time: '10:00' })], { ...moving, start_time: null }, '2026-11-04')).toEqual([]);
     });
 });

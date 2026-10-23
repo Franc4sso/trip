@@ -19,7 +19,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
     // bump to drop caches saved by an older app version with a different data shape
     buster: 'v1',
     dehydrateOptions: {
-        shouldDehydrateQuery: (q) => q.state.status === 'success' && ['trips', 'trip', 'events', 'advice'].includes(String(q.queryKey[0])),
+        shouldDehydrateQuery: (q) => q.state.status === 'success' && ['trips', 'trip', 'events', 'advice', 'documents'].includes(String(q.queryKey[0])),
     },
 };
 
@@ -31,7 +31,12 @@ export function clearOfflineData() {
     } catch {
         // storage unavailable: nothing was saved
     }
+    // tickets and passports saved for offline use must not outlive the account
+    if ('caches' in window) caches.delete(DOCUMENTS_CACHE).catch(() => {});
 }
+
+/** Cache Storage bucket for document files kept on the device. */
+export const DOCUMENTS_CACHE = 'tabi-documents';
 
 function safeLocalStorage(): Storage | undefined {
     try {

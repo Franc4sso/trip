@@ -29,17 +29,19 @@ with t as (
         ('44444444-4444-4444-4444-444444444444'::uuid, 'viewer')
     ) as m(user_id, role)
 ), stays as (
-    insert into public.stays (trip_id, name, city, check_in, check_out, confirmed, latitude, longitude)
+    insert into public.stays (trip_id, name, city, address, check_in, check_out, confirmed, latitude, longitude)
     select t.id, s.* from t, (values
-        ('Hotel Gracery Shinjuku', 'Tokyo', '2026-11-03'::date, '2026-11-06'::date, true, 35.6946, 139.7016),
-        ('Ryokan a Higashiyama', 'Kyoto', '2026-11-06'::date, '2026-11-11'::date, true, 34.9986, 135.7810),
-        ('Hotel a Namba', 'Osaka', '2026-11-11'::date, '2026-11-16'::date, false, 34.6655, 135.5010)
+        ('Hotel Gracery Shinjuku', 'Tokyo', '1-19-1 Kabukicho, Shinjuku-ku, Tokyo', '2026-11-03'::date, '2026-11-06'::date, true, 35.6946::float8, 139.7016::float8),
+        ('Ryokan a Higashiyama', 'Kyoto', 'Higashiyama-ku, Kyoto', '2026-11-06'::date, '2026-11-11'::date, true, 34.9986, 135.7810),
+        -- no address at all: the place search won't find "Hotel a Namba", try "Chiedi all'AI"
+        ('Hotel a Namba', 'Osaka', null, '2026-11-11'::date, '2026-11-16'::date, false, null, null)
     ) as s
 )
 insert into public.activities (trip_id, date, start_time, duration_minutes, type, title, city, cost, booking_required, booking_deadline, booked)
 select t.id, a.* from t, (values
     ('2026-11-03'::date, '15:00'::time, 120, 'transport'::public.activity_type, 'Arrivo a Narita e transfer', 'Tokyo', null::int, false, null::date, false),
     ('2026-11-03', '19:30', 90, 'food', 'Ramen a Shinjuku', 'Tokyo', null, false, null, false),
+    ('2026-11-03', '21:00', 30, 'hotel', 'Rientro in hotel · Hotel Gracery Shinjuku', 'Tokyo', null, false, null, false),
     ('2026-11-04', '09:00', 120, 'visit', 'Senso-ji, Asakusa', 'Tokyo', null, false, null, false),
     ('2026-11-04', '12:00', 60, 'food', 'Pranzo ad Asakusa', 'Tokyo', null, false, null, false),
     ('2026-11-04', '17:00', 120, 'experience', 'teamLab Planets', 'Tokyo', 3800, true, '2026-10-28', true),
@@ -54,7 +56,10 @@ select t.id, a.* from t, (values
     ('2026-11-06', '14:00', 120, 'visit', 'Kiyomizu-dera', 'Kyoto', 500, false, null, false),
     ('2026-11-06', '16:30', 90, 'visit', 'Passeggiata a Gion', 'Kyoto', null, false, null, false),
     ('2026-11-06', '19:30', 120, 'food', 'Cena kaiseki', 'Kyoto', 9000, true, '2026-10-30', false),
+    ('2026-11-06', '21:45', 30, 'hotel', 'Rientro in hotel · Ryokan a Higashiyama', 'Kyoto', null, false, null, false),
     ('2026-11-07', '07:30', 180, 'visit', 'Fushimi Inari', 'Kyoto', null, false, null, false),
+    -- the afternoon rest fills the morning-to-afternoon gap without counting as sightseeing
+    ('2026-11-07', '11:00', 150, 'hotel', 'Rientro in hotel · Ryokan a Higashiyama', 'Kyoto', null, false, null, false),
     ('2026-11-07', '15:00', 90, 'visit', 'Tofuku-ji', 'Kyoto', null, false, null, false),
     ('2026-11-08', '09:00', 240, 'visit', 'Arashiyama e bambù', 'Kyoto', null, false, null, false),
     ('2026-11-09', '10:00', 180, 'visit', 'Kinkaku-ji', 'Kyoto', null, false, null, false),
@@ -86,6 +91,14 @@ from (values
     ('Nishiki Market', 35.0050, 135.7649)
 ) as v(title, lat, lon)
 where a.title = v.title;
+
+-- going back to the hotel takes the hotel's address and point
+update public.activities a set location = s.address, latitude = s.latitude, longitude = s.longitude
+from public.stays s
+where a.type = 'hotel' and a.trip_id = s.trip_id and a.title = 'Rientro in hotel · ' || s.name;
+
+-- an address typed by hand (no point): the map search didn't know this izakaya
+update public.activities set location = 'Omoide Yokocho, Nishi-Shinjuku 1-chome, Tokyo' where title = 'Izakaya a Shinjuku';
 
 -- the demo rows above were inserted without a signed-in user: start with a clean feed
 delete from public.trip_events;

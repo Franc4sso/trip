@@ -157,3 +157,30 @@
     display: flex;
     transform: rotate(45deg);
 }
+
+/* you, while navigating: a dot with a cone pointing where you walk */
+.tabi-me {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    pointer-events: none;
+}
+.tabi-me-cone {
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(from -30deg at 50% 50%, rgb(91 108 255 / 0.45) 0deg 60deg, transparent 60deg);
+    border-radius: 50%;
+    mask: radial-gradient(circle, #000 0 60%, transparent 61%);
+}
+.tabi-me-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border-radius: 50%;
+    background: #5b6cff;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 6px rgb(91 108 255 / 0.25), 0 2px 6px rgb(0 0 0 / 0.3);
+}

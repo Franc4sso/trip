@@ -11,7 +11,7 @@ export interface Walk {
 
 // FOSSGIS walking router: OpenStreetMap data, free, no key, CORS enabled.
 // The profile segment says "driving" but the foot instance only knows feet.
-const ROUTER = 'https://routing.openstreetmap.de/routed-foot/route/v1/driving/';
+export const ROUTER = 'https://routing.openstreetmap.de/routed-foot/route/v1/driving/';
 
 export function walkUrl(points: Coordinates[]): string {
     const path = points.map((p) => `${p.longitude},${p.latitude}`).join(';');

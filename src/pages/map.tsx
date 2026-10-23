@@ -1,10 +1,13 @@
 import { useConfirm } from '@/components/confirm-dialog';
 import { MapView, type MapPin } from '@/components/map-view';
+import { Navigator, type NavTarget } from '@/components/navigator';
+import { meters } from '@/lib/navigation';
 import { WithTrip } from '@/components/states';
+import { TripCalendar } from '@/components/trip-calendar';
 import TripLayout from '@/components/trip-layout';
 import { FormError } from '@/components/ui';
 import { api } from '@/lib/api';
-import { dayStays, tripDays } from '@/lib/insights';
+import { computeInsights, dayStays, startMinute } from '@/lib/insights';
 import { paths } from '@/lib/paths';
 import type { Coordinates } from '@/lib/places';
 import { formatKm, routeKm, shortestOrder, transitHint, withinWalk, type Leg } from '@/lib/route';
@@ -12,8 +15,8 @@ import { ACTIVITY_TYPES, dayOfMonth, formatMinutes, formatWeekdayShort, type Act
 import { useAction } from '@/lib/use-action';
 import { cn } from '@/lib/utils';
 import { useWalk } from '@/lib/walking';
-import { Footprints, Navigation, Sparkles, TrainFront } from 'lucide-react';
-import { Fragment, useEffect, useRef } from 'react';
+import { CalendarDays, Footprints, Navigation, Navigation2, Sparkles, TrainFront } from 'lucide-react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
 // pin fills that read on both map themes
@@ -23,6 +26,7 @@ const PIN_COLOR: Record<Activity['type'], string> = {
     transport: '#4A4B52',
     experience: '#7A4BC2',
     shopping: '#1F7A4D',
+    hotel: '#16171B',
     note: '#8C6A23',
 };
 
@@ -35,7 +39,9 @@ const walkTime = (minutes: number) => formatMinutes(Math.max(1, Math.round(minut
 
 function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Activity[]; stays: Stay[] }) {
     const [params, setParams] = useSearchParams();
-    const days = tripDays(trip);
+    const insights = computeInsights(trip, activities, stays);
+    const days = insights.days.map((d) => d.date);
+    const [calendar, setCalendar] = useState(false);
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const date = params.get('day') ?? (days.includes(today) ? today : days[0]);
@@ -106,34 +112,58 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
         run(() => Promise.all(best.map((stopIndex, slot) => api.updateActivity(timed[stopIndex].id, { start_time: slots[slot] }))));
     };
 
+    // turn-by-turn on foot: the day's stops in order, then tonight's bed
+    const [nav, setNav] = useState<number | null>(null);
+    const targets: NavTarget[] = [
+        ...stops.map((a, i) => ({ id: `a${a.id}`, title: a.title, label: String(i + 1), color: PIN_COLOR[a.type], start_time: a.start_time, latitude: a.latitude!, longitude: a.longitude! })),
+        // unless the last stop already is the way back to it
+        ...(night && located(night) && !(coords.length && meters(coords[coords.length - 1], night) < 50) ? [{ id: `s${night.id}`, title: night.name, label: null, color: '#1F7A4D', start_time: null, latitude: night.latitude, longitude: night.longitude }] : []),
+    ];
+    // today, the first stop not over yet (or the bed when they all are); any other day, the first one
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const notOver = stops.findIndex((a) => !a.start_time || startMinute(a)! + (a.duration_minutes ?? 60) > nowMinutes);
+    const upcoming = date !== today ? 0 : notOver === -1 ? targets.length - 1 : notOver;
+
     const scrollToStop = (id: string) => document.getElementById(`stop-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     return (
         <TripLayout title={`Mappa · ${trip.name}`} trip={trip} tab="map" dayHref={paths.day(trip.id, date)}>
-            <div ref={stripRef} className="-mx-5 flex snap-x scroll-px-5 gap-1.5 overflow-x-auto px-5 pb-1 [scrollbar-width:none]" role="tablist" aria-label="Giorno">
-                {days.map((d, i) => {
-                    const count = activities.filter((a) => a.date === d && located(a)).length;
-                    return (
-                        <button
-                            key={d}
-                            role="tab"
-                            aria-selected={d === date}
-                            aria-current={d === date ? 'date' : undefined}
-                            onClick={() => setParams({ day: d }, { replace: true })}
-                            className={cn(
-                                'relative flex h-14 w-12 shrink-0 snap-start flex-col items-center justify-center rounded-[14px] border text-[11px] font-semibold',
-                                d === date ? 'border-ink bg-ink text-paper' : 'border-line bg-card text-mute',
-                            )}
-                        >
-                            {formatWeekdayShort(d)}
-                            <b className={cn('text-base', d === date ? 'text-paper' : 'text-ink')}>{dayOfMonth(d)}</b>
-                            <span className="sr-only">
-                                Giorno {i + 1}, {count} luoghi
-                            </span>
-                        </button>
-                    );
-                })}
+            <div className="-mx-5 flex items-start gap-1.5 pl-5">
+                <button
+                    onClick={() => setCalendar(true)}
+                    aria-label="Apri il calendario del viaggio"
+                    aria-haspopup="dialog"
+                    className="flex h-14 w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-[14px] border border-indigo bg-indigo-soft text-[10px] font-bold text-indigo"
+                >
+                    <CalendarDays className="size-5" aria-hidden="true" />
+                    Tutti
+                </button>
+                <div ref={stripRef} className="flex min-w-0 flex-1 snap-x scroll-px-2 gap-1.5 overflow-x-auto pr-5 pb-1 [scrollbar-width:none]" role="tablist" aria-label="Giorno">
+                    {days.map((d, i) => {
+                        const count = activities.filter((a) => a.date === d && located(a)).length;
+                        return (
+                            <button
+                                key={d}
+                                role="tab"
+                                aria-selected={d === date}
+                                aria-current={d === date ? 'date' : undefined}
+                                onClick={() => setParams({ day: d }, { replace: true })}
+                                className={cn(
+                                    'relative flex h-14 w-12 shrink-0 snap-start flex-col items-center justify-center rounded-[14px] border text-[11px] font-semibold',
+                                    d === date ? 'border-ink bg-ink text-paper' : 'border-line bg-card text-mute',
+                                )}
+                            >
+                                {formatWeekdayShort(d)}
+                                <b className={cn('text-base', d === date ? 'text-paper' : 'text-ink')}>{dayOfMonth(d)}</b>
+                                <span className="sr-only">
+                                    Giorno {i + 1}, {count} luoghi
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
+            <TripCalendar open={calendar} onOpenChange={setCalendar} days={insights.days} selected={date} subtitle={trip.name} onPick={(d) => setParams({ day: d }, { replace: true })} />
 
             <div className="relative mt-3 h-[52dvh] min-h-72 overflow-hidden rounded-[22px] border border-line bg-sunken">
                 <MapView pins={pins} route={walk.line} approximate={walk.approximate} onPinClick={(id) => scrollToStop(id)} />
@@ -145,6 +175,23 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
             </div>
 
             <FormError message={error} />
+
+            {targets.length > 0 && (
+                <button
+                    onClick={() => setNav(upcoming)}
+                    className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-indigo px-4 py-3 text-left text-on-indigo shadow-[0_10px_24px_rgba(47,67,201,0.3)] transition-transform active:scale-[0.99]"
+                >
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-on-indigo/15">
+                        <Navigation2 className="size-5" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-extrabold">Portami {date === today ? 'alla prossima tappa' : 'alla prima tappa'}</span>
+                        <span className="block truncate text-xs opacity-80">
+                            {targets[upcoming].label}. {targets[upcoming].title} · a piedi, con il GPS
+                        </span>
+                    </span>
+                </button>
+            )}
 
             {worthIt && trip.can_edit && (
                 <div className="mt-3 flex items-center gap-2.5 rounded-2xl bg-indigo-soft px-3 py-2.5">
@@ -195,11 +242,19 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
                                 <span className="block truncate text-xs text-mute">{[ACTIVITY_TYPES[a.type].label, a.location].filter(Boolean).join(' · ')}</span>
                             </span>
                             <span className="text-xs font-semibold text-mute">{a.start_time ?? '—'}</span>
+                            <button
+                                onClick={() => setNav(i)}
+                                aria-label={`Portami a ${a.title}`}
+                                className="flex h-9 shrink-0 items-center gap-1 rounded-[10px] border border-field px-2.5 text-xs font-bold text-indigo hover:bg-hover"
+                            >
+                                <Navigation2 className="size-3.5" aria-hidden="true" />
+                                Vai
+                            </button>
                         </li>
                     </Fragment>
                 ))}
                 {legHome && <LegRow leg={legHome} from={sameStay ? 'Ritorno' : "All'alloggio"} />}
-                {night && <StayRow stay={night} label="Notte" divided={!legHome && stops.length > 0} />}
+                {night && <StayRow stay={night} label="Notte" divided={!legHome && stops.length > 0} onGo={located(night) ? () => setNav(targets.length - 1) : undefined} />}
             </ol>
 
             {missing.length > 0 && (
@@ -212,11 +267,12 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
                 </p>
             )}
 
+            {nav !== null && targets[nav] && <Navigator targets={targets} start={nav} date={date} onClose={() => setNav(null)} />}
         </TripLayout>
     );
 }
 
-function StayRow({ stay, label, divided = false }: { stay: Stay; label: string; divided?: boolean }) {
+function StayRow({ stay, label, divided = false, onGo }: { stay: Stay; label: string; divided?: boolean; onGo?: () => void }) {
     return (
         <li id={`stop-s${stay.id}`} className={cn('flex items-center gap-3 py-2.5', divided && 'border-t border-line')}>
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-leaf text-paper" aria-hidden="true">
@@ -226,6 +282,12 @@ function StayRow({ stay, label, divided = false }: { stay: Stay; label: string; 
                 <b>{label}:</b> {stay.name}
                 {!located(stay) && <span className="block text-xs text-mute">Senza posizione: cercalo nei suggerimenti per vederlo sulla mappa</span>}
             </span>
+            {onGo && (
+                <button onClick={onGo} aria-label={`Portami a ${stay.name}`} className="flex h-9 shrink-0 items-center gap-1 rounded-[10px] border border-field px-2.5 text-xs font-bold text-indigo hover:bg-hover">
+                    <Navigation2 className="size-3.5" aria-hidden="true" />
+                    Vai
+                </button>
+            )}
         </li>
     );
 }

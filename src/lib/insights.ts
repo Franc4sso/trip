@@ -61,8 +61,33 @@ export function startMinute(a: Pick<Activity, 'start_time'>): number | null {
     return h * 60 + m;
 }
 
+/** What `a` would overlap on `date` if it moved there keeping its time. */
+export function clashesOn<A extends Pick<Activity, 'id' | 'date' | 'start_time' | 'duration_minutes' | 'type'>>(activities: A[], a: A, date: string): A[] {
+    const start = startMinute(a);
+    if (start === null || a.type === 'note') return [];
+    const end = start + (a.duration_minutes ?? 60);
+    return activities.filter((o) => {
+        const from = startMinute(o);
+        return o.id !== a.id && o.date === date && o.type !== 'note' && from !== null && from < end && start < from + (o.duration_minutes ?? 60);
+    });
+}
+
+/** The hotel to go back to on `date`: tonight's, or last night's on check-out day. */
+export function hotelOn<S extends Pick<Stay, 'check_in' | 'check_out'>>(stays: S[], date: string): S | undefined {
+    const { morning, night } = dayStays(stays, date);
+    return night ?? morning;
+}
+
+/** When the last timed activity of the day ends (HH:MM), or null with nothing timed. */
+export function dayEndsAt(activities: Pick<Activity, 'start_time' | 'duration_minutes' | 'type'>[]): string | null {
+    const ends = activities.filter((a) => a.start_time && a.type !== 'note').map((a) => startMinute(a)! + (a.duration_minutes ?? 60));
+    return ends.length ? clock(Math.min(Math.max(...ends), 23 * 60 + 55)) : null;
+}
+
 function day(date: string, number: number, activities: Activity[], stays: Stay[]): DayInsight {
-    const counted = activities.filter((a) => a.type !== 'note');
+    // back at the hotel is time taken (no false gaps), not time planned
+    const timeTaken = activities.filter((a) => a.type !== 'note');
+    const counted = timeTaken.filter((a) => a.type !== 'hotel');
 
     const minutesByType: Partial<Record<ActivityType, number>> = {};
     for (const a of counted) minutesByType[a.type] = (minutesByType[a.type] ?? 0) + (a.duration_minutes ?? 0);
@@ -76,7 +101,7 @@ function day(date: string, number: number, activities: Activity[], stays: Stay[]
         planned_minutes: planned,
         minutes_by_type: minutesByType,
         load: counted.length === 0 ? 'empty' : planned > FULL_DAY_MINUTES ? 'full' : 'ok',
-        gaps: gaps(counted),
+        gaps: gaps(timeTaken),
     };
 }
 

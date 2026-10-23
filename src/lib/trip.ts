@@ -10,6 +10,7 @@ export const ACTIVITY_TYPES: Record<ActivityType, { label: string; icon: LucideI
     transport: { label: 'Spostamento', icon: TrainFront, tint: 'bg-stone-soft text-stone-ink', bar: 'bg-stone' },
     experience: { label: 'Esperienza', icon: Sparkles, tint: 'bg-grape-soft text-grape', bar: 'bg-grape' },
     shopping: { label: 'Shopping', icon: ShoppingBag, tint: 'bg-leaf-soft text-leaf', bar: 'bg-leaf' },
+    hotel: { label: 'Hotel', icon: BedDouble, tint: 'bg-hero text-on-hero', bar: 'bg-dash' },
     note: { label: 'Nota', icon: NotebookPen, tint: 'bg-sun-soft text-sun-ink', bar: 'bg-sun-line' },
 };
 

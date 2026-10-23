@@ -1,20 +1,24 @@
+import { AddressField } from '@/components/address-field';
+import { useAskAiPlace } from '@/components/ask-ai-place';
 import { useConfirm } from '@/components/confirm-dialog';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { PlaceInput } from '@/components/place-input';
 import { TimeField } from '@/components/time-field';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
+import { hotelOn } from '@/lib/insights';
 import { type Coordinates } from '@/lib/places';
 import { useFocus, usePeersOn } from '@/lib/presence';
-import { ACTIVITY_TYPES, formatDayMonth, formatWeekdayShort, type Activity, type ActivityType, type TripHeader } from '@/lib/trip';
+import { ACTIVITY_TYPES, formatDayMonth, formatWeekdayShort, type Activity, type ActivityType, type Stay, type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
 import { cn } from '@/lib/utils';
-import { MapPin, X } from 'lucide-react';
+import { CalendarSync, Ticket } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 
 export interface ActivityDraft {
     date?: string | null;
     start_time?: string | null;
+    type?: ActivityType;
 }
 
 interface Props {
@@ -28,21 +32,39 @@ interface Props {
     near?: Coordinates | null;
     /** City of the day the sheet was opened from. */
     city?: string | null;
+    /** To fill "back to the hotel" with the right hotel for the day. */
+    stays?: Stay[];
+    /** Tickets and documents tied to this activity, and how to add one. */
+    documentCount?: number;
+    onAddDocument?: (activityId: number) => void;
+    /** One-tap move to another day, without going through the form. */
+    onMove?: (activity: Activity) => void;
 }
 
 const DURATIONS = [30, 60, 90, 120, 180, 240, 360];
+const HOTEL_TITLE = 'Rientro in hotel';
 
-export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft, near, city }: Props) {
+export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft, near, city, stays = [], documentCount = 0, onAddDocument, onMove }: Props) {
     const [data, setData] = useState(initial);
     const { run, pending, error, clearError } = useAction();
     const confirm = useConfirm();
     useFocus(open, activity ? { kind: 'activity', id: activity.id } : { kind: 'new-activity', date: draft?.date ?? null });
     const alsoEditing = usePeersOn((f) => !!activity && f?.kind === 'activity' && f.id === activity.id);
+    const ai = useAskAiPlace(trip.id, { query: data.title, hint: data.location, city: data.city || city, kind: 'activity' }, (c) =>
+        setData((d) => ({ ...d, location: c.address, city: d.city || c.city || '', latitude: c.latitude, longitude: c.longitude })),
+    );
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
 
+    /** Title, address and point of the hotel to go back to on `date`. */
+    function hotelFill(date: string) {
+        const hotel = date ? hotelOn(stays, date) : undefined;
+        if (!hotel) return { title: HOTEL_TITLE };
+        return { title: `${HOTEL_TITLE} · ${hotel.name}`, location: hotel.address ?? '', city: hotel.city, latitude: hotel.latitude, longitude: hotel.longitude };
+    }
+
     function initial() {
-        return {
-            type: (activity?.type ?? 'visit') as ActivityType,
+        const base = {
+            type: (activity?.type ?? draft?.type ?? 'visit') as ActivityType,
             title: activity?.title ?? '',
             location: activity?.location ?? '',
             city: activity?.city ?? (activity ? '' : (city ?? '')),
@@ -58,15 +80,22 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
             latitude: activity?.latitude ?? null,
             longitude: activity?.longitude ?? null,
         };
+        return !activity && base.type === 'hotel' ? { ...base, ...hotelFill(base.date) } : base;
     }
+
+    // the title is still ours (empty or auto-filled): safe to refill it with the hotel
+    const autoTitle = (title: string) => !title.trim() || title.startsWith(HOTEL_TITLE);
+    const pickType = (type: ActivityType) => setData((d) => ({ ...d, type, ...(type === 'hotel' && autoTitle(d.title) ? hotelFill(d.date) : {}) }));
+    const pickDate = (date: string) => setData((d) => ({ ...d, date, ...(d.type === 'hotel' && autoTitle(d.title) ? hotelFill(date) : {}) }));
 
     useEffect(() => {
         if (open) {
             setData(initial());
             clearError();
+            ai.reset();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, activity?.id, draft?.date, draft?.start_time]);
+    }, [open, activity?.id, draft?.date, draft?.start_time, draft?.type]);
 
     const submit = async (e: FormEvent) => {
         e.preventDefault();
@@ -114,6 +143,24 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                         Anche {alsoEditing.join(', ')} sta modificando questa attività: salva per ultimo chi ha le informazioni giuste.
                     </p>
                 )}
+                {activity && onMove && (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-card px-3.5 py-2.5">
+                        <span className="flex min-w-0 items-center gap-2 text-sm font-bold">
+                            <CalendarSync className="size-4 shrink-0 text-indigo" aria-hidden="true" />
+                            <span className="truncate">{activity.date ? `${formatWeekdayShort(activity.date).toLowerCase()} ${formatDayMonth(activity.date)}` : 'Nella lista idee'}</span>
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onOpenChange(false);
+                                onMove(activity);
+                            }}
+                            className="h-9 shrink-0 rounded-[10px] bg-indigo px-3 text-xs font-bold text-on-indigo hover:bg-indigo-deep"
+                        >
+                            {activity.date ? 'Sposta di giorno' : 'Metti in un giorno'}
+                        </button>
+                    </div>
+                )}
                 <fieldset>
                     <legend className="sr-only">Tipo</legend>
                     <div className="flex flex-wrap gap-2">
@@ -125,7 +172,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                                     key={type}
                                     type="button"
                                     aria-pressed={active}
-                                    onClick={() => set('type', type)}
+                                    onClick={() => pickType(type)}
                                     className={cn(
                                         'inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold transition-colors',
                                         active ? 'border-ink bg-ink text-paper' : 'border-field bg-card hover:bg-hover',
@@ -159,21 +206,21 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                         placeholder="Kiyomizu-dera, cena di sushi…"
                         required
                         maxLength={200}
+                        onAskAi={ai.ask}
                     />
-                    {data.location && (
-                        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-mute">
-                            <MapPin className="size-3.5 shrink-0 text-indigo" aria-hidden="true" />
-                            <span className="min-w-0 truncate">{data.location}</span>
-                            <button
-                                type="button"
-                                aria-label="Togli il luogo"
-                                onClick={() => setData((d) => ({ ...d, location: '', latitude: null, longitude: null }))}
-                                className="-my-2 flex size-8 shrink-0 items-center justify-center rounded-lg hover:bg-hover"
-                            >
-                                <X className="size-3.5" aria-hidden="true" />
-                            </button>
-                        </p>
-                    )}
+                    {ai.element}
+                </Field>
+
+                <Field label="Indirizzo" htmlFor="act-address">
+                    <AddressField
+                        id="act-address"
+                        city={data.city || city}
+                        near={near}
+                        value={data.location}
+                        hasPosition={data.latitude != null}
+                        onChange={(location) => setData((d) => ({ ...d, location, latitude: null, longitude: null }))}
+                        onPick={({ address, ...pick }) => setData((d) => ({ ...d, ...pick, location: address, city: d.city || pick.city || '' }))}
+                    />
                 </Field>
 
                 <Field label="Città" htmlFor="act-city">
@@ -189,7 +236,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                 </Field>
 
                 <Field label="Giorno" htmlFor="act-date">
-                    <select id="act-date" className={inputClass} value={data.date} onChange={(e) => set('date', e.target.value)}>
+                    <select id="act-date" className={inputClass} value={data.date} onChange={(e) => pickDate(e.target.value)}>
                         <option value="">Lista idee (da decidere)</option>
                         {days.map((d) => (
                             <option key={d.date} value={d.date}>
@@ -234,6 +281,25 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                         </>
                     )}
                 </div>
+
+                {activity && onAddDocument && (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-card px-3.5 py-2.5">
+                        <span className="flex items-center gap-2 text-sm font-bold">
+                            <Ticket className="size-4 text-indigo" aria-hidden="true" />
+                            {documentCount === 0 ? 'Nessun biglietto' : documentCount === 1 ? '1 biglietto o documento' : `${documentCount} biglietti o documenti`}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onOpenChange(false);
+                                onAddDocument(activity.id);
+                            }}
+                            className="h-9 shrink-0 rounded-[10px] border border-field px-3 text-xs font-bold hover:bg-hover"
+                        >
+                            Aggiungi biglietto
+                        </button>
+                    </div>
+                )}
 
                 <Field label="Note" htmlFor="act-notes">
                     <textarea id="act-notes" rows={3} className={cn(inputClass, 'h-auto py-2.5')} value={data.notes} onChange={(e) => set('notes', e.target.value)} />

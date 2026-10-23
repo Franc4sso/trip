@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useUser } from './auth';
 import { openChannel } from './channels';
+import type { Locate, LocateRequest } from './locate';
 import { supabase } from './supabase';
 import type { Activity, Member, Role, Stay, Trip, TripHeader } from './trip';
 
@@ -159,6 +160,7 @@ export function useTripRealtime(id: number) {
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trip_events', filter }, () =>
                     queryClient.invalidateQueries({ queryKey: ['events', id] }),
                 )
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'documents', filter }, () => queryClient.invalidateQueries({ queryKey: ['documents', id] }))
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'polls', filter }, () => queryClient.invalidateQueries({ queryKey: ['polls', id] }))
                 // votes have no trip_id: RLS limits them to trips we are in, refetch ours
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes' }, () => queryClient.invalidateQueries({ queryKey: ['polls', id] })),
@@ -218,4 +220,15 @@ export const api = {
     unvote: (pollId: number, userId: string) => must(supabase.from('poll_votes').delete().eq('poll_id', pollId).eq('user_id', userId)),
     closePoll: (pollId: number) => mustTouch(supabase.from('polls').update({ closed: true }).eq('id', pollId).select('id')),
     deletePoll: (pollId: number) => mustTouch(supabase.from('polls').delete().eq('id', pollId).select('id')),
+
+    /** Asks the AI for plausible addresses of a place the map search does not know. */
+    locate: async (tripId: number, locate: LocateRequest): Promise<Locate> => {
+        const { data, error } = await supabase.functions.invoke<Locate>('advice', { body: { tripId, locate } });
+        if (error) {
+            // the function answers errors as { error: "..." } in Italian
+            const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+            throw new Error(detail?.error ?? "L'AI non risponde ora: scrivi l'indirizzo a mano o riprova tra poco.");
+        }
+        return data!;
+    },
 };

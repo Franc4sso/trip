@@ -1,4 +1,5 @@
 import { ActivitySheet } from '@/components/activity-sheet';
+import { useMoveSheet } from '@/components/move-sheet';
 import { WithTrip } from '@/components/states';
 import TripLayout from '@/components/trip-layout';
 import { FormError, IconLink } from '@/components/ui';
@@ -41,6 +42,7 @@ function Board({ data }: { data: TripData }) {
     const [dragging, setDragging] = useState<Activity | null>(null);
     const [sheet, setSheet] = useState<{ open: boolean; activity?: Activity | null; date?: string | null }>({ open: false });
     const insights = computeInsights(trip, activities, stays);
+    const mover = useMoveSheet(trip, insights.days, activities);
     const label = (date: string | null) => (date ? `${formatWeekdayShort(date).toLowerCase()} ${dayOfMonth(date)}` : 'lista idee');
 
     const sensors = useSensors(
@@ -125,8 +127,11 @@ function Board({ data }: { data: TripData }) {
                 open={sheet.open}
                 activity={sheet.activity}
                 draft={{ date: sheet.date ?? null }}
+                stays={stays}
+                onMove={mover.open}
                 onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
             />
+            {mover.element}
         </TripLayout>
     );
 }

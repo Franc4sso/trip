@@ -25,7 +25,7 @@ interface Props {
 }
 
 // OpenFreeMap: free OpenStreetMap vector tiles, no key
-const STYLE = {
+export const MAP_STYLE = {
     light: 'https://tiles.openfreemap.org/styles/positron',
     dark: 'https://tiles.openfreemap.org/styles/dark',
 };
@@ -49,7 +49,7 @@ export function MapView({ pins, route, approximate = false, onPinClick }: Props)
     useEffect(() => {
         const m = new maplibregl.Map({
             container: container.current!,
-            style: dark ? STYLE.dark : STYLE.light,
+            style: dark ? MAP_STYLE.dark : MAP_STYLE.light,
             center: [139.7, 35.68],
             zoom: 11,
             attributionControl: { compact: true },

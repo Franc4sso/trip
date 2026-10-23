@@ -1,4 +1,5 @@
-// AI advice for a trip: suggestions (cached per itinerary version) and free questions.
+// AI advice for a trip: suggestions (cached per itinerary version), free questions,
+// and finding the address of a place the map search did not know (`locate`).
 // Runs with the caller's JWT, so RLS decides which trip it can read.
 //
 // Secrets: ANTHROPIC_API_KEY (`supabase secrets set ANTHROPIC_API_KEY=...`).
@@ -6,12 +7,14 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AdviceSchema, itineraryHash, itineraryText, SYSTEM_PROMPT } from '../../../src/lib/advice.ts';
+import { LOCATE_PROMPT, LocateSchema, locateTask, type LocateRequest } from '../../../src/lib/locate.ts';
 import type { Activity, Stay, Trip } from '../../../src/lib/types.ts';
 
 const MODEL = 'claude-opus-5-5';
-const DAILY_LIMIT = 30;
+// a safety net against loops and leaked invite links, not a budget: raise it with the AI_DAILY_LIMIT secret
+const DAILY_LIMIT = Number(Deno.env.get('AI_DAILY_LIMIT')) || 100;
 
 const TRIP_COLUMNS = 'id, name, destination, start_date, end_date, color, currency';
 const ACTIVITY_COLUMNS =
@@ -41,7 +44,7 @@ Deno.serve(async (req) => {
     const { data: auth } = await supabase.auth.getUser(authorization.replace(/^Bearer\s+/i, ''));
     if (!auth.user) return fail(401, 'Accedi per chiedere consigli.');
 
-    let body: { tripId?: unknown; question?: unknown; refresh?: unknown };
+    let body: { tripId?: unknown; question?: unknown; refresh?: unknown; locate?: unknown };
     try {
         body = await req.json();
     } catch {
@@ -50,6 +53,7 @@ Deno.serve(async (req) => {
     const tripId = Number(body.tripId);
     const question = typeof body.question === 'string' ? body.question.trim().slice(0, 500) : '';
     if (!Number.isInteger(tripId) || tripId <= 0) return fail(400, 'Viaggio non valido.');
+    if (body.locate !== undefined) return locate(supabase, tripId, body.locate);
 
     // RLS: a trip you are not a member of simply does not exist here
     const [tripRes, activitiesRes, staysRes] = await Promise.all([
@@ -71,14 +75,8 @@ Deno.serve(async (req) => {
         if (cached?.itinerary_hash === hash) return json({ ...cached.payload, cached: true, created_at: cached.created_at, itinerary_hash: hash });
     }
 
-    // say it plainly instead of failing inside the SDK, and before spending today's quota
-    if (!Deno.env.get('ANTHROPIC_API_KEY') && !Deno.env.get('ANTHROPIC_AUTH_TOKEN')) {
-        return fail(503, 'I consigli AI non sono ancora attivi: manca la chiave Anthropic sul server (vedi docs/DEPLOY.md, passo 6).');
-    }
-
-    const { data: left } = await supabase.rpc('ai_requests_left', { p_daily_limit: DAILY_LIMIT });
-    if (typeof left === 'number' && left <= 0) return fail(429, `Hai usato i ${DAILY_LIMIT} consigli di oggi: riprova domani.`);
-    await supabase.from('ai_requests').insert({ trip_id: tripId, kind: question ? 'question' : 'suggestions' });
+    const blocked = await spendQuota(supabase, tripId, question ? 'question' : 'suggestions');
+    if (blocked) return blocked;
 
     const task = question
         ? `Domanda del gruppo: «${question}»\nRispondi in "answer" e aggiungi solo i consigli collegati alla domanda (anche 0).`
@@ -114,11 +112,87 @@ Deno.serve(async (req) => {
         }
         return json({ ...advice, cached: false, created_at: new Date().toISOString(), itinerary_hash: hash });
     } catch (error) {
-        if (error instanceof Anthropic.RateLimitError) return fail(503, 'Il servizio di consigli è molto richiesto: riprova tra un minuto.');
-        if (error instanceof Anthropic.AuthenticationError) return fail(500, 'Consigli non configurati: manca la chiave Anthropic.');
-        if (error instanceof Anthropic.APIConnectionError) return fail(503, 'Non riesco a raggiungere il servizio di consigli: riprova.');
-        if (error instanceof Anthropic.APIError) return fail(502, `Errore del servizio di consigli (${error.status}).`);
-        console.error(error);
-        return fail(500, 'Qualcosa è andato storto.');
+        return apiFailure(error);
     }
 });
+
+type Supabase = SupabaseClient;
+
+/** Checks the key and today's quota, then logs the call. Returns the error response, if any. */
+async function spendQuota(supabase: Supabase, tripId: number, kind: 'suggestions' | 'question' | 'locate'): Promise<Response | null> {
+    // say it plainly instead of failing inside the SDK, and before spending today's quota
+    if (!Deno.env.get('ANTHROPIC_API_KEY') && !Deno.env.get('ANTHROPIC_AUTH_TOKEN')) {
+        return fail(503, 'I consigli AI non sono ancora attivi: manca la chiave Anthropic sul server (vedi docs/DEPLOY.md, passo 6).');
+    }
+    const { data: left } = await supabase.rpc('ai_requests_left', { p_daily_limit: DAILY_LIMIT });
+    if (typeof left === 'number' && left <= 0) return fail(429, `Hai usato le ${DAILY_LIMIT} richieste AI di oggi: riprova domani.`);
+    await supabase.from('ai_requests').insert({ trip_id: tripId, kind });
+    return null;
+}
+
+function apiFailure(error: unknown): Response {
+    if (error instanceof Anthropic.RateLimitError) return fail(503, 'Il servizio AI è molto richiesto: riprova tra un minuto.');
+    if (error instanceof Anthropic.AuthenticationError) return fail(500, 'AI non configurata: manca la chiave Anthropic.');
+    if (error instanceof Anthropic.APIConnectionError) return fail(503, 'Non riesco a raggiungere il servizio AI: riprova.');
+    if (error instanceof Anthropic.APIError) return fail(502, `Errore del servizio AI (${error.status}).`);
+    console.error(error);
+    return fail(500, 'Qualcosa è andato storto.');
+}
+
+/** Plausible addresses for a place the map search did not find, looked up on the web. */
+async function locate(supabase: Supabase, tripId: number, raw: unknown): Promise<Response> {
+    const input = (raw ?? {}) as Record<string, unknown>;
+    const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+    const req: LocateRequest = {
+        query: text(input.query, 200),
+        hint: text(input.hint, 255) || null,
+        city: text(input.city, 120) || null,
+        kind: input.kind === 'stay' ? 'stay' : 'activity',
+    };
+    if (!req.query) return fail(400, 'Scrivi prima il nome del luogo da cercare.');
+
+    // RLS: only members of the trip may spend AI calls on it
+    const { data: trip } = await supabase.from('trips').select('id').eq('id', tripId).maybeSingle();
+    if (!trip) return fail(404, 'Viaggio non trovato.');
+
+    const blocked = await spendQuota(supabase, tripId, 'locate');
+    if (blocked) return blocked;
+
+    const ask = async (withSearch: boolean) => {
+        const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: locateTask(req) }];
+        // a long search turn can pause: hand it back and let the server resume it
+        for (let turn = 0; turn < 3; turn++) {
+            const response = await anthropic.beta.messages.parse({
+                model: MODEL,
+                max_tokens: 16000,
+                betas: ['server-side-fallback-2026-07-01'],
+                fallbacks: 'default',
+                output_config: { effort: 'medium', format: betaZodOutputFormat(LocateSchema) },
+                system: LOCATE_PROMPT,
+                tools: withSearch ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5 }] : undefined,
+                messages,
+            });
+            if (response.stop_reason !== 'pause_turn') return response;
+            messages.push({ role: 'assistant', content: response.content });
+        }
+        return null;
+    };
+
+    try {
+        let response;
+        try {
+            response = await ask(true);
+        } catch (error) {
+            // web search off for this organization (or not combinable here): answer from what the model knows
+            if (!(error instanceof Anthropic.BadRequestError)) throw error;
+            console.warn('locate without web search:', error.message);
+            response = await ask(false);
+        }
+        if (!response) return fail(504, 'La ricerca sta durando troppo: riprova.');
+        if (response.stop_reason === 'refusal') return fail(422, 'Non posso cercare questo luogo: prova a riformulare il nome.');
+        if (response.stop_reason === 'max_tokens' || !response.parsed_output) return fail(502, 'La risposta è arrivata incompleta: riprova.');
+        return json(response.parsed_output);
+    } catch (error) {
+        return apiFailure(error);
+    }
+}

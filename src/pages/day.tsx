@@ -1,12 +1,16 @@
 import { WithTrip } from '@/components/states';
 import { api } from '@/lib/api';
-import { computeInsights } from '@/lib/insights';
+import { computeInsights, dayEndsAt, hotelOn } from '@/lib/insights';
 import { paths } from '@/lib/paths';
 import { namesSentence, usePeersOn } from '@/lib/presence';
 import { useAction } from '@/lib/use-action';
-import { Navigate, useParams } from 'react-router';
+import { Navigate, useNavigate, useParams } from 'react-router';
 import { ActivitySheet, type ActivityDraft } from '@/components/activity-sheet';
+import { useDocumentSheets } from '@/components/documents-panel';
+import { useMoveSheet } from '@/components/move-sheet';
+import { TripCalendar } from '@/components/trip-calendar';
 import { Chip, IconLink } from '@/components/ui';
+import { useDocuments, type TripDocument } from '@/lib/documents';
 import TripLayout from '@/components/trip-layout';
 import {
     ACTIVITY_TYPES,
@@ -24,16 +28,19 @@ import {
     type TripHeader,
 } from '@/lib/trip';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, Lightbulb, Plus } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Lightbulb, Plus, Ticket } from 'lucide-react';
 import { Fragment, useState } from 'react';
 
 interface Props {
     trip: TripHeader;
     day: DayInsight;
-    days: { date: string; number: number; load: DayLoad; city: string | null }[];
+    days: { date: string; number: number; load: DayLoad; city: string | null; planned_minutes: number }[];
     activities: Activity[];
     stay: Stay | null;
+    stays: Stay[];
     ideas: Activity[];
+    /** Every activity of the trip, to link documents to any of them. */
+    allActivities: Activity[];
 }
 
 export default function DayRoute() {
@@ -52,10 +59,12 @@ export default function DayRoute() {
                         key={day.date}
                         trip={trip}
                         day={day}
-                        days={insights.days.map(({ date, number, load, city }) => ({ date, number, load, city }))}
+                        days={insights.days.map(({ date, number, load, city, planned_minutes }) => ({ date, number, load, city, planned_minutes }))}
                         activities={ofDay}
                         stay={stays.find((s) => s.check_in <= day.date && s.check_out > day.date) ?? null}
+                        stays={stays}
                         ideas={activities.filter((a) => !a.date)}
+                        allActivities={activities}
                     />
                 );
             }}
@@ -63,10 +72,12 @@ export default function DayRoute() {
     );
 }
 
-function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
+function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivities }: Props) {
     const { run, error } = useAction();
     const adding = usePeersOn((f) => f?.kind === 'new-activity' && f.date === day.date);
     const [sheet, setSheet] = useState<{ open: boolean; activity?: Activity | null; draft?: ActivityDraft }>({ open: false });
+    const navigate = useNavigate();
+    const [calendar, setCalendar] = useState(false);
     const index = days.findIndex((d) => d.date === day.date);
     const prev = days[index - 1];
     const next = days[index + 1];
@@ -78,8 +89,22 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
     const near = anchor?.latitude != null && anchor.longitude != null ? { latitude: anchor.latitude, longitude: anchor.longitude } : null;
     const costPerHead = activities.reduce((sum, a) => sum + (a.cost ?? 0), 0);
 
+    const { data: documents = [] } = useDocuments(trip.id);
+    const docSheets = useDocumentSheets(trip, allActivities, stays);
+    // ids picked to move together; null when not selecting
+    const [picked, setPicked] = useState<Set<number> | null>(null);
+    const mover = useMoveSheet(trip, days, allActivities, () => setPicked(null));
+    const toggle = (a: Activity) => setPicked((p) => p && new Set(p.has(a.id) ? [...p].filter((id) => id !== a.id) : [...p, a.id]));
+    const selectable = trip.can_edit && activities.length > 1;
+    // your own tickets first, then the group's
+    const docsOf = (a: Activity) => documents.filter((d) => d.activity_id === a.id).sort((x, y) => Number(x.scope === 'group') - Number(y.scope === 'group'));
+
+    // tonight's hotel, or last night's on check-out day
+    const hotel = hotelOn(stays, day.date);
+
     const openNew = (draft: ActivityDraft = {}) => setSheet({ open: true, activity: null, draft: { date: day.date, ...draft } });
-    const openEdit = (activity: Activity) => trip.can_edit && setSheet({ open: true, activity });
+    const backToHotel = (startTime: string | null) => openNew({ type: 'hotel', start_time: startTime });
+    const openEdit = (activity: Activity) => trip.can_edit && (picked ? toggle(activity) : setSheet({ open: true, activity }));
     const placeIdea = (idea: Activity, startTime: string | null = null) => run(() => api.updateActivity(idea.id, { date: day.date, start_time: startTime }));
 
     // a gap always ends where an activity starts: draw it right before that activity
@@ -97,12 +122,15 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 ) : (
                     <span className="size-11 shrink-0" />
                 )}
-                <div className="min-w-0 text-center">
-                    <p className="text-xs font-bold tracking-[0.06em] text-mute">
+                {/* the date opens the whole trip as a calendar, to jump without stepping day by day */}
+                <button onClick={() => setCalendar(true)} aria-haspopup="dialog" className="min-w-0 rounded-[14px] px-2 py-1 text-center hover:bg-hover">
+                    <span className="flex items-center justify-center gap-1.5 text-xs font-bold tracking-[0.06em] text-mute">
+                        <CalendarDays className="size-3.5" aria-hidden="true" />
                         GIORNO {day.number} DI {tripLength(trip)}
-                    </p>
+                        <ChevronDown className="size-3.5" aria-hidden="true" />
+                    </span>
                     <h1 className="text-lg font-extrabold">{formatWeekday(day.date)}</h1>
-                </div>
+                </button>
                 {next ? (
                     <IconLink label={`Giorno successivo: ${formatWeekday(next.date)}`} to={paths.day(trip.id, next.date)}>
                         <ChevronRight className="size-5" aria-hidden="true" />
@@ -139,15 +167,42 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 </p>
             )}
 
-            <ol className="mt-4 flex flex-col gap-2" aria-label="Programma del giorno">
+            {selectable && (
+                <div className="mt-4 flex items-center justify-end gap-1">
+                    {picked && (
+                        <button onClick={() => setPicked(new Set(activities.map((a) => a.id)))} className="h-9 rounded-[10px] px-3 text-xs font-bold text-mute hover:bg-hover">
+                            Tutte
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setPicked((p) => (p ? null : new Set()))}
+                        aria-pressed={!!picked}
+                        className={cn('h-9 rounded-[10px] px-3 text-xs font-bold', picked ? 'bg-ink text-paper' : 'border border-field hover:bg-hover')}
+                    >
+                        {picked ? 'Fine' : 'Seleziona'}
+                    </button>
+                </div>
+            )}
+
+            <ol className={cn('flex flex-col gap-2', selectable ? 'mt-2' : 'mt-4')} aria-label="Programma del giorno">
                 {timed.map((a, i) => {
                     const gap = gapBefore(a, i);
                     return (
                         <Fragment key={a.id}>
-                            {gap && <GapCard gap={gap} ideas={fitting(ideas, gap, day.city)} canEdit={trip.can_edit} onFill={() => openNew({ start_time: gap.from })} onPlace={(idea) => placeIdea(idea, gap.from)} />}
+                            {gap && (
+                                <GapCard
+                                    gap={gap}
+                                    ideas={fitting(ideas, gap, day.city)}
+                                    canEdit={trip.can_edit}
+                                    onFill={() => openNew({ start_time: gap.from })}
+                                    onPlace={(idea) => placeIdea(idea, gap.from)}
+                                    onHotel={hotel ? () => backToHotel(gap.from) : undefined}
+                                />
+                            )}
                             <li className="flex gap-2.5">
                                 <time className="w-11 shrink-0 pt-3 text-right text-xs font-bold text-mute">{a.start_time}</time>
-                                <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} />
+                                <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} />
+                                <TicketButton docs={docsOf(a)} onOpen={(docs) => docSheets.view(docs[0], docs)} />
                             </li>
                         </Fragment>
                     );
@@ -159,7 +214,8 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 {untimed.map((a) => (
                     <li key={a.id} className="flex gap-2.5">
                         <span className="w-11 shrink-0" />
-                        <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} />
+                        <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} />
+                        <TicketButton docs={docsOf(a)} onOpen={(docs) => docSheets.view(docs[0], docs)} />
                     </li>
                 ))}
 
@@ -171,12 +227,20 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 )}
             </ol>
 
-            {stay && (
+            {hotel && (
                 <div className="mt-3 flex items-center gap-2.5 rounded-[14px] bg-hero px-3 py-2.5 text-on-hero sm:ml-[54px]">
                     <StayIcon className="size-5 shrink-0" aria-hidden="true" />
-                    <p className="text-[13px]">
-                        <b>Notte:</b> {stay.name} · {stay.city}
+                    <p className="min-w-0 flex-1 text-[13px]">
+                        <b>{stay ? 'Notte:' : 'Check-out:'}</b> {hotel.name} · {hotel.city}
                     </p>
+                    {trip.can_edit && (
+                        <button
+                            onClick={() => backToHotel(dayEndsAt(activities))}
+                            className="h-9 shrink-0 rounded-[10px] bg-on-hero px-3 text-xs font-bold text-hero transition-opacity hover:opacity-90"
+                        >
+                            Torna in hotel
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -208,7 +272,23 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
             {/* room to scroll the last card out from under the + button */}
             {trip.can_edit && <div className="h-16" aria-hidden="true" />}
 
-            {trip.can_edit && (
+            {/* while picking, the + button gives way to what to do with the selection */}
+            {picked && (
+                <div className="fixed inset-x-4 bottom-[calc(max(env(safe-area-inset-bottom),0.75rem)+80px+var(--badge-space))] z-20 mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-ink px-4 py-2.5 text-paper shadow-xl">
+                    <p className="min-w-0 flex-1 text-[13px] font-semibold">
+                        {picked.size === 0 ? 'Tocca le attività da spostare' : picked.size === 1 ? '1 selezionata' : `${picked.size} selezionate`}
+                    </p>
+                    <button
+                        onClick={() => mover.open(activities.filter((a) => picked.has(a.id)))}
+                        disabled={picked.size === 0}
+                        className="h-9 shrink-0 rounded-[10px] bg-paper px-3 text-xs font-bold text-ink disabled:opacity-40"
+                    >
+                        Sposta
+                    </button>
+                </div>
+            )}
+
+            {trip.can_edit && !picked && (
                 <button
                     onClick={() => openNew()}
                     aria-label="Aggiungi attività"
@@ -226,8 +306,15 @@ function DayPage({ trip, day, days, activities, stay, ideas }: Props) {
                 draft={sheet.draft}
                 near={near}
                 city={day.city}
+                stays={stays}
+                documentCount={sheet.activity ? docsOf(sheet.activity).length : 0}
+                onAddDocument={(activityId) => docSheets.add({ activity_id: activityId })}
+                onMove={mover.open}
                 onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
             />
+            {docSheets.element}
+            {mover.element}
+            <TripCalendar open={calendar} onOpenChange={setCalendar} days={days} selected={day.date} subtitle={trip.name} onPick={(date) => navigate(paths.day(trip.id, date))} />
         </TripLayout>
     );
 }
@@ -240,7 +327,20 @@ function fitting(ideas: Activity[], gap: Gap, city: string | null): Activity[] {
         .sort((a, b) => Number(sameCity(b)) - Number(sameCity(a)));
 }
 
-function ActivityCard({ activity: a, currency, onOpen, editable }: { activity: Activity; currency: string; onOpen: () => void; editable: boolean }) {
+function ActivityCard({
+    activity: a,
+    currency,
+    onOpen,
+    editable,
+    picked,
+}: {
+    activity: Activity;
+    currency: string;
+    onOpen: () => void;
+    editable: boolean;
+    /** Selection state while picking activities to move; undefined when not selecting. */
+    picked?: boolean;
+}) {
     const editors = usePeersOn((f) => f?.kind === 'activity' && f.id === a.id);
     const meta = ACTIVITY_TYPES[a.type];
     const Icon = meta.icon;
@@ -250,14 +350,21 @@ function ActivityCard({ activity: a, currency, onOpen, editable }: { activity: A
         <button
             onClick={onOpen}
             disabled={!editable}
+            aria-pressed={picked}
             className={cn(
                 'flex flex-1 gap-2.5 rounded-2xl border bg-card px-3 py-2.5 text-left enabled:hover:bg-hover disabled:cursor-default',
-                editors.length > 0 ? 'border-leaf ring-2 ring-leaf-soft' : 'border-line',
+                picked ? 'border-indigo ring-2 ring-indigo-soft' : editors.length > 0 ? 'border-leaf ring-2 ring-leaf-soft' : 'border-line',
             )}
         >
-            <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-[10px]', meta.tint)} aria-hidden="true">
-                <Icon className="size-[18px]" />
-            </span>
+            {picked === undefined ? (
+                <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-[10px]', meta.tint)} aria-hidden="true">
+                    <Icon className="size-[18px]" />
+                </span>
+            ) : (
+                <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-full border-2', picked ? 'border-indigo bg-indigo text-on-indigo' : 'border-field')} aria-hidden="true">
+                    {picked && <Check className="size-[18px]" />}
+                </span>
+            )}
             <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold">{a.title}</span>
                 <span className="mt-px block text-xs text-mute">
@@ -284,7 +391,36 @@ function ActivityCard({ activity: a, currency, onOpen, editable }: { activity: A
     );
 }
 
-function GapCard({ gap, ideas, canEdit, onFill, onPlace }: { gap: Gap; ideas: Activity[]; canEdit: boolean; onFill: () => void; onPlace: (idea: Activity) => void }) {
+/** Opens the tickets of an activity right from the day, offline too. */
+function TicketButton({ docs, onOpen }: { docs: TripDocument[]; onOpen: (docs: TripDocument[]) => void }) {
+    if (docs.length === 0) return null;
+    return (
+        <button
+            onClick={() => onOpen(docs)}
+            aria-label={docs.length === 1 ? `Apri ${docs[0].title}` : `Apri i ${docs.length} biglietti`}
+            className="relative flex w-11 shrink-0 items-center justify-center rounded-2xl border border-line bg-card text-indigo hover:bg-hover"
+        >
+            <Ticket className="size-5" aria-hidden="true" />
+            {docs.length > 1 && <span className="absolute top-1.5 right-1.5 text-[10px] font-extrabold">{docs.length}</span>}
+        </button>
+    );
+}
+
+function GapCard({
+    gap,
+    ideas,
+    canEdit,
+    onFill,
+    onPlace,
+    onHotel,
+}: {
+    gap: Gap;
+    ideas: Activity[];
+    canEdit: boolean;
+    onFill: () => void;
+    onPlace: (idea: Activity) => void;
+    onHotel?: () => void;
+}) {
     const suggestion = ideas[0];
 
     return (
@@ -305,6 +441,11 @@ function GapCard({ gap, ideas, canEdit, onFill, onPlace }: { gap: Gap; ideas: Ac
                         <button onClick={onFill} className="h-8 rounded-[10px] border border-sun-line px-2.5 text-xs font-bold text-sun-ink hover:bg-sun-line/20">
                             Riempi
                         </button>
+                        {onHotel && (
+                            <button onClick={onHotel} className="h-8 rounded-[10px] border border-sun-line px-2.5 text-xs font-bold text-sun-ink hover:bg-sun-line/20">
+                                Pausa in hotel
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

@@ -1,3 +1,5 @@
+import { AddressField } from '@/components/address-field';
+import { useAskAiPlace } from '@/components/ask-ai-place';
 import { useConfirm } from '@/components/confirm-dialog';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { PlaceInput } from '@/components/place-input';
@@ -22,6 +24,9 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
     const { run, pending, error, clearError } = useAction();
     const confirm = useConfirm();
     useFocus(open, { kind: 'stay', id: stay?.id ?? null });
+    const ai = useAskAiPlace(trip.id, { query: data.name, hint: data.address, city: data.city, kind: 'stay' }, (c) =>
+        setData((d) => ({ ...d, address: c.address, city: d.city || c.city || '', latitude: c.latitude, longitude: c.longitude })),
+    );
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
 
     function initial() {
@@ -42,6 +47,7 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
     useEffect(() => {
         if (open) {
             setData(initial());
+            ai.reset();
             clearError();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -99,7 +105,9 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
                         placeholder="Hotel, ryokan, Airbnb…"
                         required
                         maxLength={200}
+                        onAskAi={ai.ask}
                     />
+                    {ai.element}
                 </Field>
                 <Field label="Città" htmlFor="stay-city">
                     <PlaceInput id="stay-city" kind="city" value={data.city} onChange={(city) => set('city', city)} onSelect={(place) => set('city', place.name)} required maxLength={120} />
@@ -113,7 +121,14 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
                     </Field>
                 </div>
                 <Field label="Indirizzo" htmlFor="stay-address">
-                    <input id="stay-address" className={inputClass} value={data.address} onChange={(e) => set('address', e.target.value)} maxLength={255} />
+                    <AddressField
+                        id="stay-address"
+                        city={data.city}
+                        value={data.address}
+                        hasPosition={data.latitude != null}
+                        onChange={(address) => setData((d) => ({ ...d, address, latitude: null, longitude: null }))}
+                        onPick={(pick) => setData((d) => ({ ...d, ...pick, city: d.city || pick.city || '' }))}
+                    />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                     <Field label={`Costo totale (${trip.currency})`} htmlFor="stay-cost">

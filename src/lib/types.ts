@@ -3,7 +3,7 @@
  * no runtime imports here, and relative imports keep their .ts extension.
  */
 export type Role = 'owner' | 'editor' | 'viewer';
-export type ActivityType = 'visit' | 'food' | 'transport' | 'experience' | 'shopping' | 'note';
+export type ActivityType = 'visit' | 'food' | 'transport' | 'experience' | 'shopping' | 'hotel' | 'note';
 export type DayLoad = 'empty' | 'ok' | 'full';
 
 export interface Member {

@@ -101,7 +101,8 @@ le Netlify Functions gratuite si fermano dopo 10 secondi, una risposta ragionata
 
 1. Crea una chiave su https://console.anthropic.com → *API Keys* (serve un metodo di pagamento;
    ogni richiesta costa qualche centesimo, i consigli sono messi in cache finché il viaggio non cambia
-   e ogni persona ha al massimo 30 richieste al giorno).
+   e ogni persona ha al massimo 100 richieste al giorno: è solo una rete di sicurezza, per cambiarla
+   aggiungi il secret `AI_DAILY_LIMIT`, es. `npx supabase secrets set AI_DAILY_LIMIT=300`).
 2. Supabase → *Edge Functions → Secrets* → aggiungi `ANTHROPIC_API_KEY` con la chiave.
    (Dal terminale: `npx supabase secrets set ANTHROPIC_API_KEY=...`.) La chiave resta solo su Supabase,
    non va mai su Netlify né nel codice.
