@@ -84,10 +84,18 @@ export function dayEndsAt(activities: Pick<Activity, 'start_time' | 'duration_mi
     return ends.length ? clock(Math.min(Math.max(...ends), 23 * 60 + 55)) : null;
 }
 
+/**
+ * Resting at the hotel: the "Torna in hotel" type, or one saved under another type
+ * but still named like it ("Rientro in hotel · Ryokan…").
+ */
+export function isHotelBreak(a: Pick<Activity, 'type' | 'title'>): boolean {
+    return a.type === 'hotel' || /^rientro in hotel\b/i.test(a.title.trim());
+}
+
 function day(date: string, number: number, activities: Activity[], stays: Stay[]): DayInsight {
     // back at the hotel is time taken (no false gaps), not time planned
     const timeTaken = activities.filter((a) => a.type !== 'note');
-    const counted = timeTaken.filter((a) => a.type !== 'hotel');
+    const counted = timeTaken.filter((a) => !isHotelBreak(a));
 
     const minutesByType: Partial<Record<ActivityType, number>> = {};
     for (const a of counted) minutesByType[a.type] = (minutesByType[a.type] ?? 0) + (a.duration_minutes ?? 0);

@@ -7,7 +7,7 @@ import { TimeField } from '@/components/time-field';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
 import { hotelOn } from '@/lib/insights';
-import { type Coordinates } from '@/lib/places';
+import { geocodeAddress, type Coordinates } from '@/lib/places';
 import { useFocus, usePeersOn } from '@/lib/presence';
 import { ACTIVITY_TYPES, formatDayMonth, formatWeekdayShort, type Activity, type ActivityType, type Stay, type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
@@ -99,8 +99,14 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
 
     const submit = async (e: FormEvent) => {
         e.preventDefault();
+        // a written address saved straight away still gets its point on the map
+        const point =
+            data.latitude == null && data.location.trim().length >= 6
+                ? await geocodeAddress(data.location.trim(), { city: data.city || city, near }).catch(() => null)
+                : null;
         const input = {
             ...data,
+            ...(point && { latitude: point.latitude, longitude: point.longitude }),
             title: data.title.trim(),
             location: data.location.trim() || null,
             city: data.city.trim() || null,

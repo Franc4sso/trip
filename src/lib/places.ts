@@ -116,3 +116,75 @@ export function addStop(current: string, city: string): string {
     stops[stops.length - 1] = city;
     return stops.filter(Boolean).join(', ');
 }
+
+// ---------------------------------------------------------------- addresses
+
+// building and floor details the map never knows: "OKI Bldg 1F", "3階"
+const BUILDING = /\b(bldg|building|bld|tower|plaza|floor|fl)\b\.?|\b\d+\s*f\b|ビル|階/i;
+// Kyoto-style directions: "Takoyakushi-dori Shinkyogoku Higashi-iru"
+const DIRECTIONS = /-dori\b|\b(agaru|sagaru|iru|higashi-iru|nishi-iru)\b/i;
+const POSTCODE = /\b\d{3}-\d{4}\b|〒/g;
+
+/**
+ * What to ask the map for a written address, most precise first: the address as written,
+ * without building and postcode, then each part (block, neighbourhood) with ward and city.
+ */
+export function addressQueries(address: string, city?: string | null): string[] {
+    const parts = address
+        .replace(POSTCODE, '')
+        .split(',')
+        .map((p) => p.trim())
+        .filter((p) => p && !BUILDING.test(p));
+    // ward and city close the address: keep them on every simpler query
+    const kept = parts.length >= 3 ? 2 : 1;
+    const tail = parts.slice(-kept);
+    if (city && !tail.some((p) => p.toLowerCase().includes(city.toLowerCase()))) tail.push(city);
+    const queries = [address.trim(), parts.join(', ')];
+    for (const part of parts.slice(0, -kept)) {
+        if (DIRECTIONS.test(part)) continue;
+        queries.push([part, ...tail].join(', '));
+        // without the house number: the neighbourhood is usually known
+        const bare = part.replace(/^[\d-]+\s+/, '');
+        if (bare !== part) queries.push([bare, ...tail].join(', '));
+    }
+    return [...new Set(queries.filter(Boolean))].slice(0, 6);
+}
+
+const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// results this coarse would pin a whole ward or city: not a position for a place
+const TOO_COARSE = new Set(['city', 'district', 'county', 'state', 'country', 'region']);
+
+/**
+ * Finds where a written address is, trying simpler forms of it until the map knows one.
+ * `approximate` when only the street or neighbourhood was found, not the building.
+ */
+export async function geocodeAddress(
+    address: string,
+    opts: { city?: string | null; near?: Coordinates | null; signal?: AbortSignal } = {},
+): Promise<(Coordinates & { approximate: boolean }) | null> {
+    const queries = addressQueries(address, opts.city);
+    for (const [i, q] of queries.entries()) {
+        const params = new URLSearchParams({ q, limit: '3', lang: 'en' });
+        if (opts.near) {
+            params.set('lat', String(opts.near.latitude));
+            params.set('lon', String(opts.near.longitude));
+        }
+        const res = await fetch(`${ENDPOINT}?${params}`, { signal: opts.signal });
+        if (!res.ok) throw new Error(`Ricerca luoghi non disponibile (${res.status})`);
+        const { features } = (await res.json()) as { features: PhotonFeature[] };
+        const hit = features.find((f) => {
+            if (TOO_COARSE.has(f.properties.type ?? '')) return false;
+            const [longitude, latitude] = f.geometry.coordinates;
+            // in the right place: near where the day happens, or at least in the named city
+            if (opts.near) return Math.abs(latitude - opts.near.latitude) < 0.3 && Math.abs(longitude - opts.near.longitude) < 0.3;
+            if (opts.city) return [f.properties.city, f.properties.county, f.properties.state].some((c) => c && fold(c).includes(fold(opts.city!)));
+            return true;
+        });
+        if (hit) {
+            const [longitude, latitude] = hit.geometry.coordinates;
+            return { latitude, longitude, approximate: i > 1 || hit.properties.type !== 'house' };
+        }
+    }
+    return null;
+}

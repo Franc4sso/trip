@@ -167,9 +167,10 @@ async function locate(supabase: Supabase, tripId: number, raw: unknown): Promise
                 max_tokens: 16000,
                 betas: ['server-side-fallback-2026-07-01'],
                 fallbacks: 'default',
-                output_config: { effort: 'medium', format: betaZodOutputFormat(LocateSchema) },
+                // an address lookup, not a hard problem: low effort means fewer, more focused searches and a much faster answer
+                output_config: { effort: 'low', format: betaZodOutputFormat(LocateSchema) },
                 system: LOCATE_PROMPT,
-                tools: withSearch ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5 }] : undefined,
+                tools: withSearch ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }] : undefined,
                 messages,
             });
             if (response.stop_reason !== 'pause_turn') return response;

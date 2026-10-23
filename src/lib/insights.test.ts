@@ -141,6 +141,17 @@ describe('back to the hotel', () => {
         expect(day.gaps).toEqual([]);
     });
 
+    it('counts as rest even when saved under another type', () => {
+        const day = dayOf(
+            computeInsights(trip, [
+                activity({ date: '2026-11-04', start_time: '09:00', duration_minutes: 120 }),
+                activity({ date: '2026-11-04', start_time: '14:00', duration_minutes: 150, type: 'visit', title: 'Rientro in hotel · Gracery' }),
+            ], []),
+            '2026-11-04',
+        );
+        expect(day.planned_minutes).toBe(120);
+    });
+
     it('does not make an otherwise empty day look planned', () => {
         const day = dayOf(computeInsights(trip, [activity({ date: '2026-11-04', start_time: '18:00', type: 'hotel' })], []), '2026-11-04');
         expect(day.load).toBe('empty');

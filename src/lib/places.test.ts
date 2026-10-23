@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addStop, lastStop, preferCity, toPlace, type Place } from './places';
+import { addressQueries, addStop, lastStop, preferCity, toPlace, type Place } from './places';
 
 // shapes copied from real photon.komoot.io responses
 const temple = {
@@ -65,5 +65,26 @@ describe('preferCity', () => {
     it('keeps the order when no city is known', () => {
         const list = [place('A', 'X'), place('B', 'Y')];
         expect(preferCity(list, null)).toBe(list);
+    });
+});
+
+describe('address queries', () => {
+    const ichiran = 'Takoyakushi OKI Bldg 1F, 598 Uraderacho, Takoyakushi-dori Shinkyogoku Higashi-iru, Nakagyo-ku, Kyoto 604-8041';
+
+    it('drops building, floor and postcode, keeps ward and city', () => {
+        const queries = addressQueries(ichiran, 'Kyoto');
+        expect(queries[0]).toBe(ichiran);
+        expect(queries[1]).toBe('598 Uraderacho, Takoyakushi-dori Shinkyogoku Higashi-iru, Nakagyo-ku, Kyoto');
+    });
+
+    it('then tries the block and the neighbourhood alone, skipping directions', () => {
+        const queries = addressQueries(ichiran, 'Kyoto');
+        expect(queries).toContain('598 Uraderacho, Nakagyo-ku, Kyoto');
+        expect(queries).toContain('Uraderacho, Nakagyo-ku, Kyoto');
+        expect(queries.some((q) => q.startsWith('Takoyakushi-dori'))).toBe(false);
+    });
+
+    it('adds the city when the address leaves it out', () => {
+        expect(addressQueries('1-19-1 Kabukicho, Shinjuku-ku', 'Tokyo')).toContain('Kabukicho, Shinjuku-ku, Tokyo');
     });
 });

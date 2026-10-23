@@ -5,6 +5,7 @@ import { BottomSheet } from '@/components/bottom-sheet';
 import { PlaceInput } from '@/components/place-input';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
+import { geocodeAddress } from '@/lib/places';
 import { type Stay, type TripHeader } from '@/lib/trip';
 import { useFocus } from '@/lib/presence';
 import { useAction } from '@/lib/use-action';
@@ -55,8 +56,12 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
 
     const submit = async (e: FormEvent) => {
         e.preventDefault();
+        // a written address saved straight away still gets its point on the map
+        const point =
+            data.latitude == null && data.address.trim().length >= 6 ? await geocodeAddress(data.address.trim(), { city: data.city }).catch(() => null) : null;
         const input = {
             ...data,
+            ...(point && { latitude: point.latitude, longitude: point.longitude }),
             name: data.name.trim(),
             city: data.city.trim(),
             address: data.address.trim() || null,

@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { type LocateCandidate, type LocateRequest } from '@/lib/locate';
+import { geocodeAddress } from '@/lib/places';
 import { cn } from '@/lib/utils';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useState } from 'react';
@@ -19,6 +20,7 @@ export function useAskAiPlace(tripId: number, request: LocateRequest, onPick: (c
     const [candidates, setCandidates] = useState<LocateCandidate[] | null>(null);
     const [asking, setAsking] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [placing, setPlacing] = useState(false);
     const query = request.query.trim();
 
     const ask = async () => {
@@ -36,9 +38,14 @@ export function useAskAiPlace(tripId: number, request: LocateRequest, onPick: (c
         }
     };
 
-    const choose = (c: LocateCandidate) => {
+    // the AI gives coordinates only when sure: otherwise find the address on the map
+    const choose = async (c: LocateCandidate) => {
         setCandidates(null);
-        onPick(c);
+        if (c.latitude != null) return onPick(c);
+        setPlacing(true);
+        const found = await geocodeAddress(c.address, { city: c.city ?? request.city }).catch(() => null);
+        setPlacing(false);
+        onPick(found ? { ...c, latitude: found.latitude, longitude: found.longitude } : c);
     };
 
     const element = (
@@ -47,6 +54,13 @@ export function useAskAiPlace(tripId: number, request: LocateRequest, onPick: (c
                 <p role="status" className="mt-2 flex items-center gap-2 rounded-xl bg-indigo-soft px-3 py-2 text-[13px] font-semibold text-indigo">
                     <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
                     Cerco «{query}» sul web…
+                </p>
+            )}
+
+            {placing && (
+                <p role="status" className="mt-2 flex items-center gap-2 rounded-xl bg-indigo-soft px-3 py-2 text-[13px] font-semibold text-indigo">
+                    <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+                    Metto l'indirizzo sulla mappa…
                 </p>
             )}
 
