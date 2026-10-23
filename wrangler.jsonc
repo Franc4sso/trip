@@ -1,0 +1,10 @@
+// Cloudflare Workers static assets: the built app in dist/, no server code.
+// Any path that is not a file (e.g. /trips/1/days/2026-11-04) serves index.html.
+{
+    "name": "tabi",
+    "compatibility_date": "2025-09-01",
+    "assets": {
+        "directory": "./dist",
+        "not_found_handling": "single-page-application"
+    }
+}

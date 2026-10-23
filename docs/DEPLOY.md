@@ -1,9 +1,9 @@
-# Pubblicare Tabi (Supabase + Cloudflare Pages)
+# Pubblicare Tabi (Supabase + Cloudflare)
 
 ## Come funziona, in breve
 
 ```
-telefono / browser ──▶ Cloudflare Pages (serve solo i file dell'app: HTML, JS, icone)
+telefono / browser ──▶ Cloudflare (serve solo i file dell'app: HTML, JS, icone)
         │
         └────────────▶ Supabase (tutti i dati, direttamente dal browser)
                          ├─ Auth      → registrazione e login
@@ -11,8 +11,9 @@ telefono / browser ──▶ Cloudflare Pages (serve solo i file dell'app: HTML,
                          └─ Realtime  → avvisa gli altri quando qualcuno modifica
 ```
 
-- **Cloudflare Pages** non ha un database e non esegue codice server: ospita l'app già compilata (`dist/`).
-  Le regole di routing e gli header stanno in `public/_redirects` e `public/_headers`.
+- **Cloudflare** (Workers con file statici) non ha un database e non esegue codice server: ospita l'app
+  già compilata (`dist/`). La configurazione sta in `wrangler.jsonc` (ogni percorso che non è un file
+  serve `index.html`) e gli header in `public/_headers`.
   (Prima era su Netlify: `netlify.toml` resta solo come riferimento.)
 - **Supabase** è il "backend già pronto". L'app ci parla direttamente con due valori:
   - **Project URL** (es. `https://abcd1234.supabase.co`)
@@ -65,38 +66,36 @@ npx supabase db push                        # crea tabelle, regole, funzioni
 - **Confirm email: OFF** (vedi i limiti sopra).
 
 *Authentication → URL Configuration* (da fare **dopo** il passo 4, quando hai l'indirizzo Cloudflare):
-- **Site URL**: `https://<tuo-progetto>.pages.dev`
-- **Redirect URLs**: aggiungi `https://<tuo-progetto>.pages.dev/**`
+- **Site URL**: `https://tabi.<tuo-account>.workers.dev`
+- **Redirect URLs**: aggiungi `https://tabi.<tuo-account>.workers.dev/**`
 
-### 4. Pubblica su Cloudflare Pages
+### 4. Pubblica su Cloudflare
 
 Collegato a GitHub: ogni push su `main` ripubblica da solo.
 
-1. https://dash.cloudflare.com → **Workers & Pages → Create → Pages → Connect to Git**.
+1. https://dash.cloudflare.com → **Workers & Pages → Create → Import a repository**.
 2. Autorizza GitHub e scegli il repository `Franc4sso/trip`.
-3. Impostazioni di build:
-   - **Project name**: es. `tabi-giappone` (diventa `tabi-giappone.pages.dev`)
-   - **Production branch**: `main`
-   - **Framework preset**: `None` (oppure `Vite`)
+3. Impostazioni:
+   - **Project name**: `tabi` (deve coincidere con `name` in `wrangler.jsonc`)
    - **Build command**: `npm run build`
-   - **Build output directory**: `dist`
-4. **Environment variables** → aggiungi `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (valori sotto).
+   - **Deploy command**: `npx wrangler deploy`
+4. **Build variables** (non le variabili del Worker: Vite le legge durante la build) →
+   `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (valori sotto).
    La versione di Node la prende da `.nvmrc` (22).
-5. **Save and Deploy**.
+5. **Deploy**. L'indirizzo è `https://tabi.<tuo-account>.workers.dev`.
 
 La anon key la trovi in *Project Settings → API Keys* (quella `anon` / `public`).
-Le variabili finiscono nell'app al momento della build: se le cambi, rifai il deploy
-(*Deployments → … → Retry deployment*).
+Se cambi le variabili, rifai il deploy: finiscono nell'app al momento della build.
 
 ### 5. Prova e condividi
 
-1. Apri `https://<tuo-progetto>.pages.dev`, crea il tuo account e il viaggio.
+1. Apri `https://tabi.<tuo-account>.workers.dev`, crea il tuo account e il viaggio.
 2. **Gruppo → Condividi link di invito** → mandalo agli amici.
 3. Dal telefono: *Condividi → Aggiungi a schermata Home* (iPhone) o *Installa app* (Android).
 
 ### 6. Consigli AI (Claude)
 
-I consigli girano in una **Supabase Edge Function** (`supabase/functions/advice`), non su Cloudflare Pages:
+I consigli girano in una **Supabase Edge Function** (`supabase/functions/advice`), non su Cloudflare:
 sul sito statico non gira codice server, e una risposta ragionata può metterci parecchi secondi.
 
 1. Crea una chiave su https://console.anthropic.com → *API Keys* (serve un metodo di pagamento;
@@ -110,6 +109,6 @@ sul sito statico non gira codice server, e una risposta ragionata può metterci 
 
 ## Aggiornare l'app
 
-- Codice cambiato → `git push`: Cloudflare Pages ripubblica da solo.
+- Codice cambiato → `git push`: Cloudflare ripubblica da solo.
 - Schema cambiato (nuova migrazione) → prima `npx supabase db push`, poi il push del codice.
 - Funzione dei consigli cambiata → `npx supabase functions deploy advice`.
