@@ -179,11 +179,17 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                                     )}
                                 >
                                     <Icon className="size-4" aria-hidden="true" />
-                                    {label}
+                                    {/* as a choice it is an action: a break at the hotel, at any time of day */}
+                                    {type === 'hotel' ? 'Torna in hotel' : label}
                                 </button>
                             );
                         })}
                     </div>
+                    {data.type === 'hotel' && (
+                        <p className="mt-2 text-xs text-mute">
+                            Una pausa in hotel, anche nel pomeriggio: nome e indirizzo li prendo dall'alloggio di quel giorno. Scegli tu orario e durata.
+                        </p>
+                    )}
                 </fieldset>
 
                 <Field label="Cosa (scrivi un luogo per i suggerimenti)" htmlFor="act-title">

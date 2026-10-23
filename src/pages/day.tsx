@@ -1,6 +1,6 @@
 import { WithTrip } from '@/components/states';
 import { api } from '@/lib/api';
-import { computeInsights, dayEndsAt, hotelOn } from '@/lib/insights';
+import { computeInsights, hotelOn } from '@/lib/insights';
 import { paths } from '@/lib/paths';
 import { namesSentence, usePeersOn } from '@/lib/presence';
 import { useAction } from '@/lib/use-action';
@@ -233,14 +233,6 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
                     <p className="min-w-0 flex-1 text-[13px]">
                         <b>{stay ? 'Notte:' : 'Check-out:'}</b> {hotel.name} · {hotel.city}
                     </p>
-                    {trip.can_edit && (
-                        <button
-                            onClick={() => backToHotel(dayEndsAt(activities))}
-                            className="h-9 shrink-0 rounded-[10px] bg-on-hero px-3 text-xs font-bold text-hero transition-opacity hover:opacity-90"
-                        >
-                            Torna in hotel
-                        </button>
-                    )}
                 </div>
             )}
 
