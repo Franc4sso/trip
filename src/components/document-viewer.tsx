@@ -1,8 +1,9 @@
 import { BottomSheet } from '@/components/bottom-sheet';
+import { ImageZoom } from '@/components/image-zoom';
 import { documentFile, formatSize, type TripDocument } from '@/lib/documents';
 import { type Member } from '@/lib/trip';
 import { cn } from '@/lib/utils';
-import { Download, ExternalLink, Loader2, Pencil } from 'lucide-react';
+import { Download, ExternalLink, Loader2, Maximize2, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
 export function DocumentViewer({ doc, members, userId, onOpenChange, onEdit, related = [], onSwitch }: Props) {
     const [url, setUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [zoom, setZoom] = useState(false);
 
     useEffect(() => {
         if (!doc) return;
@@ -27,6 +29,7 @@ export function DocumentViewer({ doc, members, userId, onOpenChange, onEdit, rel
         let alive = true;
         setUrl(null);
         setError(null);
+        setZoom(false);
         documentFile(doc)
             .then((blob) => {
                 objectUrl = URL.createObjectURL(blob);
@@ -87,10 +90,22 @@ export function DocumentViewer({ doc, members, userId, onOpenChange, onEdit, rel
             )}
             {url && isImage && (
                 // white behind the image: QR codes must scan in dark mode too
-                <img src={url} alt={doc.title} className="w-full rounded-2xl bg-white object-contain" />
+                <button type="button" onClick={() => setZoom(true)} aria-label={`${doc.title}: apri a schermo intero`} className="relative block w-full cursor-zoom-in">
+                    <img src={url} alt={doc.title} className="w-full rounded-2xl bg-white object-contain" />
+                    <span className="absolute right-2 bottom-2 flex size-9 items-center justify-center rounded-full bg-ink/75 text-paper" aria-hidden="true">
+                        <Maximize2 className="size-4" />
+                    </span>
+                </button>
             )}
+            {url && isImage && zoom && <ImageZoom src={url} alt={doc.title} onClose={() => setZoom(false)} />}
             {url && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
+                    {isImage && (
+                        <button onClick={() => setZoom(true)} className="col-span-2 flex h-[52px] items-center justify-center gap-2 rounded-2xl bg-indigo text-[15px] font-extrabold text-paper hover:bg-indigo-deep">
+                            <Maximize2 className="size-5" aria-hidden="true" />
+                            Schermo intero
+                        </button>
+                    )}
                     {!isImage && (
                         <a href={url} target="_blank" rel="noreferrer" className="col-span-2 flex h-[52px] items-center justify-center gap-2 rounded-2xl bg-indigo text-[15px] font-extrabold text-paper hover:bg-indigo-deep">
                             <ExternalLink className="size-5" aria-hidden="true" />
