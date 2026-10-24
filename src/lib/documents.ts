@@ -45,8 +45,7 @@ export function useDocuments(tripId: number) {
         queryFn: async () => {
             const { data, error } = await supabase.from('documents').select(COLUMNS).eq('trip_id', tripId).order('created_at', { ascending: false });
             if (error) throw error;
-            // shared_with may be missing in data cached offline before the column existed
-            return (data as TripDocument[]).map((d) => ({ ...d, shared_with: d.shared_with ?? [] }));
+            return data as TripDocument[];
         },
     });
     const docs = query.data;

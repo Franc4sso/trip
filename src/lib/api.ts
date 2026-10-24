@@ -45,8 +45,7 @@ function header(row: Trip, memberRows: MemberRow[], userId: string): TripHeader 
 
 /** Postgres returns time as HH:MM:SS; the UI works with HH:MM. */
 function normalizeActivity(a: Activity): Activity {
-    // options and info may be missing in data cached offline before the columns existed
-    return { ...a, start_time: a.start_time ? a.start_time.slice(0, 5) : null, options: a.options ?? [], info: a.info ?? null };
+    return { ...a, start_time: a.start_time ? a.start_time.slice(0, 5) : null };
 }
 
 async function must<T = unknown>(promise: PromiseLike<{ data: unknown; error: unknown }>): Promise<T> {

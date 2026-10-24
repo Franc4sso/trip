@@ -17,7 +17,7 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
     persister: createSyncStoragePersister({ storage: safeLocalStorage(), key: 'tabi-cache' }),
     maxAge: WEEK,
     // bump to drop caches saved by an older app version with a different data shape
-    buster: 'v1',
+    buster: 'v2', // v2: activities have options and info, documents shared_with
     dehydrateOptions: {
         shouldDehydrateQuery: (q) => q.state.status === 'success' && ['trips', 'trip', 'events', 'advice', 'documents'].includes(String(q.queryKey[0])),
     },
