@@ -1,10 +1,13 @@
 import { WithTrip } from '@/components/states';
 import { api } from '@/lib/api';
+import { factsLine } from '@/lib/describe';
 import { computeInsights, hotelOn } from '@/lib/insights';
+import { choosePatch } from '@/lib/options';
 import { paths } from '@/lib/paths';
 import { namesSentence, usePeersOn } from '@/lib/presence';
 import { useAction } from '@/lib/use-action';
 import { Navigate, useNavigate, useParams } from 'react-router';
+import { OptionList, PlaceSheet, Thumb, type ShownPlace } from '@/components/activity-options';
 import { ActivitySheet, type ActivityDraft } from '@/components/activity-sheet';
 import { useDocumentSheets } from '@/components/documents-panel';
 import { useMoveSheet } from '@/components/move-sheet';
@@ -106,6 +109,15 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
     const backToHotel = (startTime: string | null) => openNew({ type: 'hotel', start_time: startTime });
     const openEdit = (activity: Activity) => trip.can_edit && (picked ? toggle(activity) : setSheet({ open: true, activity }));
     const placeIdea = (idea: Activity, startTime: string | null = null) => run(() => api.updateActivity(idea.id, { date: day.date, start_time: startTime }));
+    const choose = (a: Activity, index: number | null) => run(() => api.updateActivity(a.id, choosePatch(a, index)));
+    // the place card of an activity (index null) or of one of its options
+    const [shown, setShown] = useState<{ activity: Activity; index: number | null } | null>(null);
+    const shownLive = shown && allActivities.find((a) => a.id === shown.activity.id);
+    const shownPlace: ShownPlace | null = shownLive
+        ? shown!.index === null
+            ? { name: shownLive.title, address: shownLive.location, city: shownLive.city, info: shownLive.info }
+            : (shownLive.options[shown!.index] ?? null)
+        : null;
 
     // a gap always ends where an activity starts: draw it right before that activity
     const gapBefore = (a: Activity, i: number): Gap | undefined =>
@@ -201,7 +213,7 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
                             )}
                             <li className="flex gap-2.5">
                                 <time className="w-11 shrink-0 pt-3 text-right text-xs font-bold text-mute">{a.start_time}</time>
-                                <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} />
+                                <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} onChoose={(i) => choose(a, i)} onShow={(index) => setShown({ activity: a, index })} />
                                 <TicketButton docs={docsOf(a)} onOpen={(docs) => docSheets.view(docs[0], docs)} />
                             </li>
                         </Fragment>
@@ -214,7 +226,7 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
                 {untimed.map((a) => (
                     <li key={a.id} className="flex gap-2.5">
                         <span className="w-11 shrink-0" />
-                        <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} />
+                        <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} onChoose={(i) => choose(a, i)} onShow={(index) => setShown({ activity: a, index })} />
                         <TicketButton docs={docsOf(a)} onOpen={(docs) => docSheets.view(docs[0], docs)} />
                     </li>
                 ))}
@@ -302,7 +314,21 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
                 documentCount={sheet.activity ? docsOf(sheet.activity).length : 0}
                 onAddDocument={(activityId) => docSheets.add({ activity_id: activityId })}
                 onMove={mover.open}
+                activities={allActivities}
                 onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
+            />
+            <PlaceSheet
+                place={shownPlace}
+                type={shownLive?.type ?? 'visit'}
+                open={!!shownPlace}
+                onOpenChange={(open) => !open && setShown(null)}
+                subtitle={shownLive && shown!.index !== null ? `Opzione per «${shownLive.title}»` : undefined}
+                chosen={!!(shownPlace as { chosen?: boolean } | null)?.chosen}
+                onChoose={
+                    shownLive && shown!.index !== null && trip.can_edit
+                        ? () => choose(shownLive, shownLive.options[shown!.index!]?.chosen ? null : shown!.index)
+                        : undefined
+                }
             />
             {docSheets.element}
             {mover.element}
@@ -325,6 +351,8 @@ function ActivityCard({
     onOpen,
     editable,
     picked,
+    onChoose,
+    onShow,
 }: {
     activity: Activity;
     currency: string;
@@ -332,54 +360,77 @@ function ActivityCard({
     editable: boolean;
     /** Selection state while picking activities to move; undefined when not selecting. */
     picked?: boolean;
+    /** Picks one of the activity's options, or drops the choice with null. */
+    onChoose: (index: number | null) => void;
+    /** Opens the place card of the activity (null) or of one of its options. */
+    onShow: (index: number | null) => void;
 }) {
     const editors = usePeersOn((f) => f?.kind === 'activity' && f.id === a.id);
     const meta = ACTIVITY_TYPES[a.type];
     const Icon = meta.icon;
     const deadline = deadlineLabel(a.booking_deadline);
+    // the photo opens the place card, the rest of the card the form: two buttons side by side
+    const withThumb = !!a.info && picked === undefined;
 
+    const card = (
+        <div className="relative flex min-w-0 flex-1">
+            <button
+                onClick={onOpen}
+                disabled={!editable}
+                aria-pressed={picked}
+                className={cn(
+                    'flex min-w-0 flex-1 gap-2.5 rounded-2xl border bg-card px-3 py-2.5 text-left enabled:hover:bg-hover disabled:cursor-default',
+                    picked ? 'border-indigo ring-2 ring-indigo-soft' : editors.length > 0 ? 'border-leaf ring-2 ring-leaf-soft' : 'border-line',
+                )}
+            >
+                {withThumb ? (
+                    <span className="size-11 shrink-0" aria-hidden="true" />
+                ) : picked === undefined ? (
+                    <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-[10px]', meta.tint)} aria-hidden="true">
+                        <Icon className="size-[18px]" />
+                    </span>
+                ) : (
+                    <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-full border-2', picked ? 'border-indigo bg-indigo text-on-indigo' : 'border-field')} aria-hidden="true">
+                        {picked && <Check className="size-[18px]" />}
+                    </span>
+                )}
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold">{a.title}</span>
+                    <span className="mt-px block text-xs text-mute">
+                        {[meta.label, a.duration_minutes ? formatMinutes(a.duration_minutes) : null, a.location, a.cost ? `${formatMoney(a.cost, currency)} a testa` : null]
+                            .filter(Boolean)
+                            .join(' · ')}
+                    </span>
+                    {factsLine(a.info) && <span className="mt-px block truncate text-xs font-bold text-clay-ink">{factsLine(a.info)}</span>}
+                    {editors.length > 0 && (
+                        <span className="mt-1.5 block">
+                            <Chip className="bg-leaf text-paper">{namesSentence(editors)} sta modificando</Chip>
+                        </span>
+                    )}
+                    {a.booking_required && (
+                        <span className="mt-1.5 block">
+                            {a.booked ? (
+                                <Chip className="bg-leaf-soft text-leaf">Prenotato</Chip>
+                            ) : (
+                                <Chip className="bg-verm-soft text-verm-ink">Prenotare {deadline.text}</Chip>
+                            )}
+                        </span>
+                    )}
+                </span>
+            </button>
+            {withThumb && (
+                <button onClick={() => onShow(null)} aria-label={`Foto e informazioni su ${a.title}`} className="absolute top-2.5 left-3 rounded-[10px]">
+                    <Thumb info={a.info} type={a.type} className="size-11" />
+                </button>
+            )}
+        </div>
+    );
+    if (a.options.length === 0) return card;
     return (
-        <button
-            onClick={onOpen}
-            disabled={!editable}
-            aria-pressed={picked}
-            className={cn(
-                'flex flex-1 gap-2.5 rounded-2xl border bg-card px-3 py-2.5 text-left enabled:hover:bg-hover disabled:cursor-default',
-                picked ? 'border-indigo ring-2 ring-indigo-soft' : editors.length > 0 ? 'border-leaf ring-2 ring-leaf-soft' : 'border-line',
-            )}
-        >
-            {picked === undefined ? (
-                <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-[10px]', meta.tint)} aria-hidden="true">
-                    <Icon className="size-[18px]" />
-                </span>
-            ) : (
-                <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-full border-2', picked ? 'border-indigo bg-indigo text-on-indigo' : 'border-field')} aria-hidden="true">
-                    {picked && <Check className="size-[18px]" />}
-                </span>
-            )}
-            <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold">{a.title}</span>
-                <span className="mt-px block text-xs text-mute">
-                    {[meta.label, a.duration_minutes ? formatMinutes(a.duration_minutes) : null, a.location, a.cost ? `${formatMoney(a.cost, currency)} a testa` : null]
-                        .filter(Boolean)
-                        .join(' · ')}
-                </span>
-                {editors.length > 0 && (
-                    <span className="mt-1.5 block">
-                        <Chip className="bg-leaf text-paper">{namesSentence(editors)} sta modificando</Chip>
-                    </span>
-                )}
-                {a.booking_required && (
-                    <span className="mt-1.5 block">
-                        {a.booked ? (
-                            <Chip className="bg-leaf-soft text-leaf">Prenotato</Chip>
-                        ) : (
-                            <Chip className="bg-verm-soft text-verm-ink">Prenotare {deadline.text}</Chip>
-                        )}
-                    </span>
-                )}
-            </span>
-        </button>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            {card}
+            <OptionList options={a.options} type={a.type} canChoose={editable && picked === undefined} onChoose={onChoose} onOpen={(i) => onShow(i)} />
+        </div>
     );
 }
 

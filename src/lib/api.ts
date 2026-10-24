@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useUser } from './auth';
 import { openChannel } from './channels';
+import type { DescribedPlace, DescribeRequest, SuggestedPlace, SuggestRequest } from './describe';
 import type { Locate, LocateRequest } from './locate';
 import { supabase } from './supabase';
 import type { Activity, Member, Role, Stay, Trip, TripHeader } from './trip';
@@ -9,7 +10,7 @@ import type { Activity, Member, Role, Stay, Trip, TripHeader } from './trip';
 // invite_token is not selectable: always list trip columns explicitly
 const TRIP_COLUMNS = 'id, name, destination, start_date, end_date, color, currency';
 const ACTIVITY_COLUMNS =
-    'id, trip_id, created_by, date, start_time, duration_minutes, type, title, location, city, notes, cost, booking_required, booking_deadline, booked, booking_url, latitude, longitude';
+    'id, trip_id, created_by, date, start_time, duration_minutes, type, title, location, city, notes, cost, booking_required, booking_deadline, booked, booking_url, latitude, longitude, options, info';
 const STAY_COLUMNS = 'id, trip_id, name, city, address, check_in, check_out, confirmed, booking_ref, cost, notes, latitude, longitude';
 const MEMBER_COLUMNS = 'user_id, role, created_at, profiles(name)';
 
@@ -44,7 +45,8 @@ function header(row: Trip, memberRows: MemberRow[], userId: string): TripHeader 
 
 /** Postgres returns time as HH:MM:SS; the UI works with HH:MM. */
 function normalizeActivity(a: Activity): Activity {
-    return { ...a, start_time: a.start_time ? a.start_time.slice(0, 5) : null };
+    // options and info may be missing in data cached offline before the columns existed
+    return { ...a, start_time: a.start_time ? a.start_time.slice(0, 5) : null, options: a.options ?? [], info: a.info ?? null };
 }
 
 async function must<T = unknown>(promise: PromiseLike<{ data: unknown; error: unknown }>): Promise<T> {
@@ -57,6 +59,16 @@ async function must<T = unknown>(promise: PromiseLike<{ data: unknown; error: un
 async function mustTouch(promise: PromiseLike<{ data: unknown; error: unknown }>): Promise<void> {
     const rows = await must<unknown[] | null>(promise);
     if (!rows || rows.length === 0) throw { code: '42501', message: 'Non hai i permessi per farlo, o è già stato eliminato.' };
+}
+
+/** Calls the `advice` Edge Function, which answers errors as { error: "..." } in Italian. */
+async function askAdvice<T>(body: object): Promise<T> {
+    const { data, error } = await supabase.functions.invoke<T>('advice', { body });
+    if (error) {
+        const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        throw new Error(detail?.error ?? "L'AI non risponde ora: riprova tra poco.");
+    }
+    return data!;
 }
 
 export const tripKey = (id: number) => ['trip', id] as const;
@@ -222,13 +234,9 @@ export const api = {
     deletePoll: (pollId: number) => mustTouch(supabase.from('polls').delete().eq('id', pollId).select('id')),
 
     /** Asks the AI for plausible addresses of a place the map search does not know. */
-    locate: async (tripId: number, locate: LocateRequest): Promise<Locate> => {
-        const { data, error } = await supabase.functions.invoke<Locate>('advice', { body: { tripId, locate } });
-        if (error) {
-            // the function answers errors as { error: "..." } in Italian
-            const detail = await (error as { context?: Response }).context?.json?.().catch(() => null);
-            throw new Error(detail?.error ?? "L'AI non risponde ora: scrivi l'indirizzo a mano o riprova tra poco.");
-        }
-        return data!;
-    },
+    locate: (tripId: number, locate: LocateRequest) => askAdvice<Locate>({ tripId, locate }),
+    /** Photos and info about a place, found by the AI on the web. */
+    describe: (tripId: number, describe: Omit<DescribeRequest, 'currency'>) => askAdvice<DescribedPlace>({ tripId, describe }),
+    /** Real places around a point for an activity, each already described. */
+    suggest: (tripId: number, suggest: Omit<SuggestRequest, 'currency'>) => askAdvice<{ places: SuggestedPlace[] }>({ tripId, suggest }),
 };

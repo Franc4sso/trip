@@ -2,10 +2,10 @@ import { DocumentSheet, type DocumentDraft } from '@/components/document-sheet';
 import { DocumentViewer } from '@/components/document-viewer';
 import { SectionTitle } from '@/components/ui';
 import { useUser } from '@/lib/auth';
-import { formatSize, useDocuments, useSavedFiles, type TripDocument } from '@/lib/documents';
+import { formatSize, useDocuments, useSavedFiles, visibilityOf, type TripDocument } from '@/lib/documents';
 import { formatDayMonth, type Activity, type Stay, type TripHeader } from '@/lib/trip';
 import { cn } from '@/lib/utils';
-import { CloudOff, FileText, ImageIcon, Lock, Ticket, Users } from 'lucide-react';
+import { CloudOff, FileText, ImageIcon, Lock, Pencil, Ticket, UserRoundCheck, Users } from 'lucide-react';
 import { useState } from 'react';
 
 /** What a document is for, e.g. "7 nov · Fushimi Inari" or "Hotel Gracery". */
@@ -15,12 +15,14 @@ function linkLabel(doc: TripDocument, activities: Activity[], stays: Stay[]): st
     return stays.find((s) => s.id === doc.stay_id)?.name ?? null;
 }
 
-export function DocumentRow({ doc, detail, saved, onOpen }: { doc: TripDocument; detail: string | null; saved: boolean; onOpen: () => void }) {
+const TINT = { personal: 'bg-grape-soft text-grape', some: 'bg-clay-soft text-clay-ink', group: 'bg-indigo-soft text-indigo' } as const;
+
+export function DocumentRow({ doc, detail, saved, onOpen, onEdit }: { doc: TripDocument; detail: string | null; saved: boolean; onOpen: () => void; onEdit?: () => void }) {
     const Icon = doc.mime_type.startsWith('image/') ? ImageIcon : FileText;
     return (
-        <li>
-            <button onClick={onOpen} className="flex w-full items-center gap-3 rounded-2xl border border-line bg-card px-3.5 py-3 text-left hover:bg-hover">
-                <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-[10px]', doc.scope === 'personal' ? 'bg-grape-soft text-grape' : 'bg-indigo-soft text-indigo')} aria-hidden="true">
+        <li className="flex gap-2">
+            <button onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-line bg-card px-3.5 py-3 text-left hover:bg-hover">
+                <span className={cn('flex size-[34px] shrink-0 items-center justify-center rounded-[10px]', TINT[visibilityOf(doc)])} aria-hidden="true">
                     <Icon className="size-[18px]" />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -33,6 +35,11 @@ export function DocumentRow({ doc, detail, saved, onOpen }: { doc: TripDocument;
                     </span>
                 )}
             </button>
+            {onEdit && (
+                <button onClick={onEdit} aria-label={`Modifica ${doc.title}`} className="flex w-11 shrink-0 items-center justify-center rounded-2xl border border-line bg-card text-mute hover:bg-hover">
+                    <Pencil className="size-4" aria-hidden="true" />
+                </button>
+            )}
         </li>
     );
 }
@@ -68,6 +75,7 @@ export function useDocumentSheets(trip: TripHeader, activities: Activity[], stay
             setViewing(doc);
         },
         add: (draft: DocumentDraft = {}) => setSheet({ open: true, doc: null, draft }),
+        edit: (doc: TripDocument) => setSheet({ open: true, doc }),
         element,
     };
 }
@@ -78,11 +86,16 @@ export function DocumentsPanel({ trip, activities, stays }: { trip: TripHeader; 
     const saved = useSavedFiles();
     const sheets = useDocumentSheets(trip, activities, stays);
 
-    const mine = docs.filter((d) => d.scope === 'personal');
-    const group = docs.filter((d) => d.scope === 'group');
-    const ownerName = (d: TripDocument) => (d.owner === user.id ? null : trip.members.find((m) => m.id === d.owner)?.name ?? null);
+    const mine = docs.filter((d) => visibilityOf(d) === 'personal');
+    const some = docs.filter((d) => visibilityOf(d) === 'some');
+    const group = docs.filter((d) => visibilityOf(d) === 'group');
+    const nameOf = (id: string) => trip.members.find((m) => m.id === id)?.name ?? null;
+    const ownerName = (d: TripDocument) => (d.owner === user.id ? null : nameOf(d.owner));
+    // "con Bruno, Carla" for yours, "da Anna" for the ones shared with you
+    const sharedLabel = (d: TripDocument) => (d.owner === user.id ? `con ${d.shared_with.map(nameOf).filter(Boolean).join(', ')}` : `da ${ownerName(d) ?? 'qualcuno'}`);
 
-    const section = (title: string, icon: typeof Lock, list: TripDocument[], empty: string, withOwner: boolean) => {
+    const section = (title: string, icon: typeof Lock, list: TripDocument[], empty: string | null, who: (d: TripDocument) => string | null) => {
+        if (list.length === 0 && !empty) return null;
         const Icon = icon;
         return (
             <section>
@@ -100,9 +113,10 @@ export function DocumentsPanel({ trip, activities, stays }: { trip: TripHeader; 
                             <DocumentRow
                                 key={d.id}
                                 doc={d}
-                                detail={[withOwner ? ownerName(d) : null, linkLabel(d, activities, stays)].filter(Boolean).join(' · ') || null}
+                                detail={[who(d), linkLabel(d, activities, stays)].filter(Boolean).join(' · ') || null}
                                 saved={saved.has(d.file_path)}
                                 onOpen={() => sheets.view(d)}
+                                onEdit={d.owner === user.id ? () => sheets.edit(d) : undefined}
                             />
                         ))}
                     </ul>
@@ -122,8 +136,9 @@ export function DocumentsPanel({ trip, activities, stays }: { trip: TripHeader; 
             </button>
             {!isPending && (
                 <>
-                    {section('Personali · li vedi solo tu', Lock, mine, 'Passaporto, assicurazione, il tuo posto sullo Shinkansen: caricali qui.', false)}
-                    {section('Del gruppo · li vedono tutti', Users, group, 'Biglietti e prenotazioni valide per tutti, come un QR unico per il gruppo.', true)}
+                    {section('Personali · li vedi solo tu', Lock, mine, 'Passaporto, assicurazione, il tuo posto sullo Shinkansen: caricali qui.', () => null)}
+                    {section('Con alcune persone', UserRoundCheck, some, null, sharedLabel)}
+                    {section('Del gruppo · li vedono tutti', Users, group, 'Biglietti e prenotazioni valide per tutti, come un QR unico per il gruppo.', ownerName)}
                     <p className="text-center text-[11px] text-faint">I file si salvano sul telefono e si aprono anche senza connessione.</p>
                 </>
             )}

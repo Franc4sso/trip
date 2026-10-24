@@ -1,9 +1,12 @@
 import { BottomSheet } from '@/components/bottom-sheet';
+import { useConfirm } from '@/components/confirm-dialog';
 import { ImageZoom } from '@/components/image-zoom';
-import { documentFile, formatSize, type TripDocument } from '@/lib/documents';
+import { FormError } from '@/components/ui';
+import { documentFile, documentsApi, formatSize, visibilityOf, type TripDocument } from '@/lib/documents';
 import { type Member } from '@/lib/trip';
+import { useAction } from '@/lib/use-action';
 import { cn } from '@/lib/utils';
-import { Download, ExternalLink, Loader2, Maximize2, Pencil } from 'lucide-react';
+import { Download, ExternalLink, Loader2, Maximize2, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -22,6 +25,8 @@ export function DocumentViewer({ doc, members, userId, onOpenChange, onEdit, rel
     const [url, setUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [zoom, setZoom] = useState(false);
+    const confirm = useConfirm();
+    const { run, pending, error: actionError, clearError } = useAction();
 
     useEffect(() => {
         if (!doc) return;
@@ -30,6 +35,7 @@ export function DocumentViewer({ doc, members, userId, onOpenChange, onEdit, rel
         setUrl(null);
         setError(null);
         setZoom(false);
+        clearError();
         documentFile(doc)
             .then((blob) => {
                 objectUrl = URL.createObjectURL(blob);
@@ -40,6 +46,7 @@ export function DocumentViewer({ doc, members, userId, onOpenChange, onEdit, rel
             alive = false;
             if (objectUrl) URL.revokeObjectURL(objectUrl);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [doc]);
 
     if (!doc) return null;
@@ -47,22 +54,51 @@ export function DocumentViewer({ doc, members, userId, onOpenChange, onEdit, rel
     const mine = doc.owner === userId;
     const who = mine ? 'tu' : (members.find((m) => m.id === doc.owner)?.name ?? 'qualcuno del gruppo');
     const isImage = doc.mime_type.startsWith('image/');
+    const nameOf = (id: string) => (id === userId ? 'te' : (members.find((m) => m.id === id)?.name ?? null));
+    const visibility = visibilityOf(doc);
+    const seenBy =
+        visibility === 'group'
+            ? `Del gruppo · caricato da ${who}`
+            : visibility === 'personal'
+              ? 'Personale, lo vedi solo tu'
+              : mine
+                ? `Lo vedi tu e ${doc.shared_with.map(nameOf).filter(Boolean).join(', ')}`
+                : `Condiviso da ${who} con ${doc.shared_with.map(nameOf).filter(Boolean).join(', ')}`;
+
+    const remove = async () => {
+        const ok = await confirm({
+            title: `Eliminare «${doc.title}»?`,
+            description: visibility === 'personal' ? 'Il file viene cancellato anche dal telefono.' : 'Sparisce anche per chi lo vedeva.',
+        });
+        if (ok && (await run(() => documentsApi.remove(doc)))) onOpenChange(false);
+    };
 
     return (
         <BottomSheet
             open
             onOpenChange={onOpenChange}
             title={doc.title}
-            subtitle={`${doc.scope === 'personal' ? 'Personale, lo vedi solo tu' : `Del gruppo · caricato da ${who}`} · ${formatSize(doc.size_bytes)}`}
+            subtitle={`${seenBy} · ${formatSize(doc.size_bytes)}`}
             footer={
                 mine && (
-                    <button onClick={() => onEdit(doc)} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-field bg-card text-sm font-bold hover:bg-hover">
-                        <Pencil className="size-4" aria-hidden="true" />
-                        Modifica
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => onEdit(doc)} className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-field bg-card text-sm font-bold hover:bg-hover">
+                            <Pencil className="size-4" aria-hidden="true" />
+                            Nome e visibilità
+                        </button>
+                        <button
+                            onClick={remove}
+                            disabled={pending}
+                            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-field bg-card text-sm font-bold text-verm-ink hover:bg-verm-soft disabled:opacity-50"
+                        >
+                            <Trash2 className="size-4" aria-hidden="true" />
+                            Elimina
+                        </button>
+                    </div>
                 )
             }
         >
+            <FormError message={actionError} />
             {related.length > 1 && onSwitch && (
                 <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Documenti di questa attività">
                     {related.map((d) => (

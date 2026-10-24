@@ -23,6 +23,8 @@ const activity = (attrs: Partial<Activity>): Activity => ({
     booking_url: null,
     latitude: null,
     longitude: null,
+    options: [],
+    info: null,
     ...attrs,
 });
 

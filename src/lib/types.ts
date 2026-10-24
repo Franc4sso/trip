@@ -3,7 +3,8 @@
  * no runtime imports here, and relative imports keep their .ts extension.
  */
 export type Role = 'owner' | 'editor' | 'viewer';
-export type ActivityType = 'visit' | 'food' | 'transport' | 'experience' | 'shopping' | 'hotel' | 'note';
+export const ACTIVITY_TYPE_VALUES = ['visit', 'food', 'transport', 'experience', 'shopping', 'hotel', 'note'] as const;
+export type ActivityType = (typeof ACTIVITY_TYPE_VALUES)[number];
 export type DayLoad = 'empty' | 'ok' | 'full';
 
 export interface Member {
@@ -47,6 +48,33 @@ export interface Activity {
     booking_url: string | null;
     latitude: number | null;
     longitude: number | null;
+    /** Alternatives to pick from on the spot; the chosen one is also the activity's location. */
+    options: ActivityOption[];
+    /** Photos and a description of the place, found by the AI. */
+    info: PlaceInfo | null;
+}
+
+export interface PlaceInfo {
+    /** Two or three sentences: what the place is and why go. */
+    summary: string | null;
+    /** What you eat there, or what it is (a temple, a market…). */
+    what: string | null;
+    /** Average price per head, or the entrance fee. */
+    price: string | null;
+    hours: string | null;
+    /** Checked image urls, best first. */
+    photos: string[];
+    source_url: string | null;
+}
+
+export interface ActivityOption {
+    name: string;
+    address: string | null;
+    city: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    info?: PlaceInfo | null;
+    chosen?: boolean;
 }
 
 export interface Stay {

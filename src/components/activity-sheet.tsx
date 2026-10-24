@@ -1,3 +1,4 @@
+import { InfoPreview, OptionsField, PlaceSheet, type ShownPlace } from '@/components/activity-options';
 import { AddressField } from '@/components/address-field';
 import { useAskAiPlace } from '@/components/ask-ai-place';
 import { useConfirm } from '@/components/confirm-dialog';
@@ -7,13 +8,15 @@ import { TimeField } from '@/components/time-field';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
 import { hotelOn } from '@/lib/insights';
+import type { DescribedPlace } from '@/lib/describe';
+import { choosePatch, optionKey, suggestAnchors } from '@/lib/options';
 import { geocodeAddress, type Coordinates } from '@/lib/places';
 import { useFocus, usePeersOn } from '@/lib/presence';
-import { ACTIVITY_TYPES, formatDayMonth, formatWeekdayShort, type Activity, type ActivityType, type Stay, type TripHeader } from '@/lib/trip';
+import { ACTIVITY_TYPES, formatDayMonth, formatWeekdayShort, type Activity, type ActivityOption, type ActivityType, type PlaceInfo, type Stay, type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
 import { cn } from '@/lib/utils';
 import { CalendarSync, Ticket } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 export interface ActivityDraft {
     date?: string | null;
@@ -39,20 +42,33 @@ interface Props {
     onAddDocument?: (activityId: number) => void;
     /** One-tap move to another day, without going through the form. */
     onMove?: (activity: Activity) => void;
+    /** Every activity of the trip: where the group will be, for the AI suggestions. */
+    activities?: Activity[];
 }
 
 const DURATIONS = [30, 60, 90, 120, 180, 240, 360];
 const HOTEL_TITLE = 'Rientro in hotel';
+// the key of the activity itself among the places being described
+const SELF = '\u0000activity';
+// kinds of activity with no place worth describing
+const NO_INFO: ActivityType[] = ['transport', 'hotel', 'note'];
 
-export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft, near, city, stays = [], documentCount = 0, onAddDocument, onMove }: Props) {
+export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft, near, city, stays = [], documentCount = 0, onAddDocument, onMove, activities = [] }: Props) {
     const [data, setData] = useState(initial);
     const { run, pending, error, clearError } = useAction();
     const confirm = useConfirm();
     useFocus(open, activity ? { kind: 'activity', id: activity.id } : { kind: 'new-activity', date: draft?.date ?? null });
     const alsoEditing = usePeersOn((f) => !!activity && f?.kind === 'activity' && f.id === activity.id);
-    const ai = useAskAiPlace(trip.id, { query: data.title, hint: data.location, city: data.city || city, kind: 'activity' }, (c) =>
-        setData((d) => ({ ...d, location: c.address, city: d.city || c.city || '', latitude: c.latitude, longitude: c.longitude })),
-    );
+    const ai = useAskAiPlace(trip.id, { query: data.title, hint: data.location, city: data.city || city, kind: 'activity' }, (c) => {
+        setData((d) => ({ ...d, location: c.address, city: d.city || c.city || '', latitude: c.latitude, longitude: c.longitude }));
+        describeSelf(data.title, c.address, c.city);
+    });
+    // places the AI is describing now, by option key (SELF for the activity)
+    const [describing, setDescribing] = useState<Set<string>>(new Set());
+    const [aiError, setAiError] = useState<string | null>(null);
+    const [shown, setShown] = useState<{ place: ShownPlace; index: number | null } | null>(null);
+    // answers that arrive after the sheet was reopened belong to another form: drop them
+    const session = useRef(0);
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
 
     /** Title, address and point of the hotel to go back to on `date`. */
@@ -79,6 +95,8 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
             booked: activity?.booked ?? false,
             latitude: activity?.latitude ?? null,
             longitude: activity?.longitude ?? null,
+            options: activity?.options ?? ([] as ActivityOption[]),
+            info: activity?.info ?? (null as PlaceInfo | null),
         };
         return !activity && base.type === 'hotel' ? { ...base, ...hotelFill(base.date) } : base;
     }
@@ -86,13 +104,93 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
     // the title is still ours (empty or auto-filled): safe to refill it with the hotel
     const autoTitle = (title: string) => !title.trim() || title.startsWith(HOTEL_TITLE);
     const pickType = (type: ActivityType) => setData((d) => ({ ...d, type, ...(type === 'hotel' && autoTitle(d.title) ? hotelFill(d.date) : {}) }));
+    // choosing (or dropping the chosen one) also moves the activity's address
+    const applyChoice = (d: typeof data, options: ActivityOption[], index: number | null) => {
+        const patch = choosePatch({ options, city: d.city }, index);
+        return { ...d, ...patch, location: patch.location ?? '', city: patch.city ?? '' };
+    };
+    const chooseOption = (index: number | null) => setData((d) => applyChoice(d, d.options, index));
+    const removeOption = (index: number) =>
+        setData((d) => {
+            const options = d.options.filter((_, i) => i !== index);
+            return d.options[index].chosen ? applyChoice(d, options, null) : { ...d, options };
+        });
+    /** Asks the AI about a place; `apply` gets the answer while this form is still the one open. */
+    async function describe(key: string, query: string, address: string | null, placeCity: string | null, apply: (place: DescribedPlace) => void) {
+        const mine = session.current;
+        setDescribing((s) => new Set(s).add(key));
+        setAiError(null);
+        try {
+            const place = await api.describe(trip.id, { query, type: data.type, address, city: placeCity || data.city || city || null });
+            if (session.current !== mine) return;
+            if (place.found) apply(place);
+            else setAiError(`L'AI non ha trovato informazioni su «${query}».`);
+        } catch (e) {
+            if (session.current === mine) setAiError((e as Error).message);
+        } finally {
+            if (session.current === mine)
+                setDescribing((s) => {
+                    const next = new Set(s);
+                    next.delete(key);
+                    return next;
+                });
+        }
+    }
+
+    function describeSelf(title: string, address: string | null, placeCity: string | null) {
+        if (!title.trim() || NO_INFO.includes(data.type)) return;
+        describe(SELF, title.trim(), address, placeCity, (place) =>
+            setData((d) =>
+                optionKey(d.title) !== optionKey(title)
+                    ? d // the title changed meanwhile: this is about another place
+                    : {
+                          ...d,
+                          info: place.info,
+                          ...(d.latitude == null && place.latitude != null && { latitude: place.latitude, longitude: place.longitude }),
+                          ...(!d.location.trim() && place.address && { location: place.address }),
+                          city: d.city || place.city || '',
+                      },
+            ),
+        );
+    }
+
+    function describeOption(o: ActivityOption) {
+        const key = optionKey(o.name);
+        describe(key, o.name, o.address, o.city, (place) =>
+            setData((d) => ({
+                ...d,
+                options: d.options.map((x) =>
+                    optionKey(x.name) !== key
+                        ? x
+                        : {
+                              ...x,
+                              info: place.info,
+                              address: x.address ?? place.address,
+                              city: x.city ?? place.city,
+                              ...(x.latitude == null && place.latitude != null && { latitude: place.latitude, longitude: place.longitude }),
+                          },
+                ),
+            })),
+        );
+    }
+
+    // always ask the AI about a new option, even one found on the map: that is where photos come from
+    const addOption = (o: ActivityOption) => {
+        setData((d) => ({ ...d, options: [...d.options, o] }));
+        if (!o.info) describeOption(o);
+    };
+
     const pickDate = (date: string) => setData((d) => ({ ...d, date, ...(d.type === 'hotel' && autoTitle(d.title) ? hotelFill(date) : {}) }));
 
     useEffect(() => {
         if (open) {
+            session.current++;
             setData(initial());
             clearError();
             ai.reset();
+            setDescribing(new Set());
+            setAiError(null);
+            setShown(null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, activity?.id, draft?.date, draft?.start_time, draft?.type]);
@@ -137,8 +235,8 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
             title={activity ? 'Modifica attività' : 'Nuova attività'}
             subtitle={trip.name}
             footer={
-                <PrimaryButton form="activity-form" type="submit" disabled={pending} className="w-full">
-                    {activity ? 'Salva' : `Aggiungi a ${target}`}
+                <PrimaryButton form="activity-form" type="submit" disabled={pending || describing.size > 0} className="w-full">
+                    {describing.size > 0 ? "L'AI sta completando le schede…" : activity ? 'Salva' : `Aggiungi a ${target}`}
                 </PrimaryButton>
             }
         >
@@ -202,8 +300,9 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                     <PlaceInput
                         id="act-title"
                         value={data.title}
-                        onChange={(title) => set('title', title)}
-                        onSelect={(place) =>
+                        // a new title is another place: what the AI said was about the old one
+                        onChange={(title) => setData((d) => ({ ...d, title, info: null }))}
+                        onSelect={(place) => {
                             setData((d) => ({
                                 ...d,
                                 title: place.name,
@@ -211,8 +310,10 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                                 city: place.city ?? d.city,
                                 latitude: place.latitude,
                                 longitude: place.longitude,
-                            }))
-                        }
+                                info: null,
+                            }));
+                            describeSelf(place.name, place.address ?? place.detail, place.city);
+                        }}
                         near={near}
                         city={data.city || city}
                         placeholder="Kiyomizu-dera, cena di sushi…"
@@ -221,6 +322,16 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                         onAskAi={ai.ask}
                     />
                     {ai.element}
+                    {/* a slot with options ("Cena") is described by its options, not by its title */}
+                    {!NO_INFO.includes(data.type) && data.title.trim().length >= 3 && (data.info || data.options.length === 0) && (
+                        <InfoPreview
+                            info={data.info}
+                            type={data.type}
+                            pending={describing.has(SELF)}
+                            onRefresh={() => describeSelf(data.title, data.location || null, data.city || null)}
+                            onOpen={() => setShown({ place: { name: data.title, address: data.location || null, city: data.city || null, info: data.info }, index: null })}
+                        />
+                    )}
                 </Field>
 
                 <Field label="Indirizzo" htmlFor="act-address">
@@ -246,6 +357,26 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                         maxLength={120}
                     />
                 </Field>
+
+                {(!NO_INFO.includes(data.type) || data.options.length > 0) && (
+                    <OptionsField
+                        tripId={trip.id}
+                        type={data.type}
+                        options={data.options}
+                        pending={describing}
+                        onAdd={addOption}
+                        onRemove={removeOption}
+                        onOpen={(index) => setShown({ place: data.options[index], index })}
+                        onDescribe={(index) => describeOption(data.options[index])}
+                        near={near}
+                        city={data.city || city}
+                        title={data.title}
+                        date={data.date || null}
+                        startTime={data.start_time || null}
+                        anchors={suggestAnchors(activities, stays, data.date || null, data.start_time || null, activity?.id)}
+                    />
+                )}
+                <FormError message={aiError} />
 
                 <Field label="Giorno" htmlFor="act-date">
                     <select id="act-date" className={inputClass} value={data.date} onChange={(e) => pickDate(e.target.value)}>
@@ -323,6 +454,14 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                     </button>
                 )}
             </form>
+            <PlaceSheet
+                place={shown?.place ?? null}
+                type={data.type}
+                open={!!shown}
+                onOpenChange={(o) => !o && setShown(null)}
+                chosen={shown?.index != null && !!data.options[shown.index]?.chosen}
+                onChoose={shown?.index != null ? () => chooseOption(data.options[shown.index!]?.chosen ? null : shown.index) : undefined}
+            />
         </BottomSheet>
     );
 }

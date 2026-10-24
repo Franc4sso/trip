@@ -18,15 +18,21 @@ export interface TripDocument {
     title: string;
     activity_id: number | null;
     stay_id: number | null;
+    /** For a personal document: the travel mates who see it too. */
+    shared_with: string[];
     file_path: string;
     mime_type: string;
     size_bytes: number;
     created_at: string;
 }
 
-export type DocumentInput = Pick<TripDocument, 'title' | 'scope' | 'activity_id' | 'stay_id'>;
+export type DocumentInput = Pick<TripDocument, 'title' | 'scope' | 'activity_id' | 'stay_id' | 'shared_with'>;
 
-const COLUMNS = 'id, trip_id, owner, scope, title, activity_id, stay_id, file_path, mime_type, size_bytes, created_at';
+/** Who sees a document: only who uploaded it, some mates, or the whole group. */
+export type Visibility = 'personal' | 'some' | 'group';
+export const visibilityOf = (d: Pick<TripDocument, 'scope' | 'shared_with'>): Visibility => (d.scope === 'group' ? 'group' : d.shared_with.length ? 'some' : 'personal');
+
+const COLUMNS = 'id, trip_id, owner, scope, title, activity_id, stay_id, shared_with, file_path, mime_type, size_bytes, created_at';
 const BUCKET = 'documents';
 export const MAX_BYTES = 10 * 1024 * 1024;
 export const ACCEPTED: Record<string, string> = { 'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
@@ -39,7 +45,8 @@ export function useDocuments(tripId: number) {
         queryFn: async () => {
             const { data, error } = await supabase.from('documents').select(COLUMNS).eq('trip_id', tripId).order('created_at', { ascending: false });
             if (error) throw error;
-            return data as TripDocument[];
+            // shared_with may be missing in data cached offline before the column existed
+            return (data as TripDocument[]).map((d) => ({ ...d, shared_with: d.shared_with ?? [] }));
         },
     });
     const docs = query.data;

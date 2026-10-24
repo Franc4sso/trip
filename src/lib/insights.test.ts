@@ -25,6 +25,8 @@ function activity(attrs: Partial<Activity>): Activity {
         created_by: null,
         latitude: null,
         longitude: null,
+        options: [],
+        info: null,
         ...attrs,
     };
 }

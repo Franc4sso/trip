@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(19);
 
 insert into auth.users (id, email, raw_user_meta_data) values
     ('00000000-0000-0000-0000-0000000000a3', 'doc-owner@test', '{"name":"Anna"}'),
@@ -62,6 +62,19 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000000a3');
 select is((select count(*)::int from documents where title = 'Assicurazione'), 0, 'personal documents stay personal, even for the owner of the trip');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000d3');
 select is((select count(*)::int from documents), 0, 'strangers see no documents');
+
+-- Anna shares the museum tickets with Bruno only
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a3');
+select lives_ok($$ insert into documents (trip_id, title, shared_with, file_path, mime_type, size_bytes)
+    select trip, 'Biglietti museo', array['00000000-0000-0000-0000-0000000000b3'::uuid], trip || '/00000000-0000-0000-0000-0000000000a3/m.pdf', 'application/pdf', 1000 from ctx $$, 'a personal document can be shared with some mates');
+select throws_ok($$ insert into documents (trip_id, title, shared_with, file_path, mime_type, size_bytes)
+    select trip, 'A Dario', array['00000000-0000-0000-0000-0000000000d3'::uuid], trip || '/00000000-0000-0000-0000-0000000000a3/d.pdf', 'application/pdf', 1000 from ctx $$, '23514', null, 'only with people in the trip');
+select throws_ok($$ update documents set shared_with = array['00000000-0000-0000-0000-0000000000b3'::uuid] where title = 'QR teamLab' $$, '23514', null, 'a group document has no list of people');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b3');
+select is((select count(*)::int from documents where title = 'Biglietti museo'), 1, 'whoever it is shared with sees it');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c3');
+select is((select count(*)::int from documents where title = 'Biglietti museo'), 0, 'the others do not');
+select lives_ok($$ update documents set shared_with = array['00000000-0000-0000-0000-0000000000a3'::uuid] where title = 'Assicurazione' $$, 'viewers can share their own papers with someone');
 
 select * from finish();
 rollback;
