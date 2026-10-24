@@ -77,6 +77,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
     // answers that arrive after the sheet was reopened belong to another form: drop them
     const session = useRef(0);
     const [openRow, setOpenRow] = useState<Row | null>(null);
+    const typesRef = useRef<HTMLDivElement>(null);
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
 
     /** Title, address and point of the hotel to go back to on `date`. */
@@ -220,6 +221,8 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
             setAiError(null);
             setShown(null);
             setOpenRow(null);
+            // the chosen type may be past the edge of the row: bring it into view
+            requestAnimationFrame(() => typesRef.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' }));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, activity?.id, draft?.date, draft?.start_time, draft?.type]);
@@ -292,27 +295,31 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                 {/* min-w-0: a fieldset is never narrower than its content by default */}
                 <fieldset className="min-w-0">
                     <legend className="sr-only">Tipo</legend>
-                    <div className="flex flex-wrap gap-1.5">
-                        {(Object.keys(ACTIVITY_TYPES) as ActivityType[]).map((type) => {
-                            const { label, icon: Icon } = ACTIVITY_TYPES[type];
-                            const active = data.type === type;
-                            return (
-                                <button
-                                    key={type}
-                                    type="button"
-                                    aria-pressed={active}
-                                    onClick={() => pickType(type)}
-                                    className={cn(
-                                        'inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs font-bold transition-colors',
-                                        active ? 'border-ink bg-ink text-paper' : 'border-field bg-card hover:bg-hover',
-                                    )}
-                                >
-                                    <Icon className="size-3.5" aria-hidden="true" />
-                                    {/* as a choice it is an action: a break at the hotel, at any time of day */}
-                                    {type === 'hotel' ? 'Torna in hotel' : label}
-                                </button>
-                            );
-                        })}
+                    {/* one line that scrolls sideways, edge to edge; the fade says there is more */}
+                    <div className="relative -mx-5">
+                        <div ref={typesRef} className="flex scroll-px-5 gap-1.5 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {(Object.keys(ACTIVITY_TYPES) as ActivityType[]).map((type) => {
+                                const { label, icon: Icon } = ACTIVITY_TYPES[type];
+                                const active = data.type === type;
+                                return (
+                                    <button
+                                        key={type}
+                                        type="button"
+                                        aria-pressed={active}
+                                        onClick={() => pickType(type)}
+                                        className={cn(
+                                            'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold transition-colors',
+                                            active ? 'border-ink bg-ink text-paper' : 'border-field bg-card hover:bg-hover',
+                                        )}
+                                    >
+                                        <Icon className="size-4" aria-hidden="true" />
+                                        {/* as a choice it is an action: a break at the hotel, at any time of day */}
+                                        {type === 'hotel' ? 'Torna in hotel' : label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <span className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-linear-to-l from-paper" aria-hidden="true" />
                     </div>
                     {data.type === 'hotel' && (
                         <p className="mt-2 text-xs text-mute">Una pausa in hotel, anche nel pomeriggio: nome e indirizzo li prendo dall'alloggio di quel giorno.</p>
