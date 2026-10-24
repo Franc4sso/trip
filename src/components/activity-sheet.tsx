@@ -14,7 +14,7 @@ import { geocodeAddress, type Coordinates } from '@/lib/places';
 import { useFocus, usePeersOn } from '@/lib/presence';
 import { ACTIVITY_TYPES, formatDayMonth, formatMinutes, formatWeekdayShort, type Activity, type ActivityOption, type ActivityType, type PlaceInfo, type Stay, type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
-import { cn } from '@/lib/utils';
+import { cn, openPicker } from '@/lib/utils';
 import { ListChecks, MapPin, Ticket } from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
@@ -264,10 +264,10 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                     </p>
                 )}
 
-                <fieldset>
+                {/* min-w-0: a fieldset is never narrower than its content by default */}
+                <fieldset className="min-w-0">
                     <legend className="sr-only">Tipo</legend>
-                    {/* one row that scrolls: the type is a quick pick, not a block of buttons */}
-                    <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-0.5 [scrollbar-width:none]">
+                    <div className="flex flex-wrap gap-1.5">
                         {(Object.keys(ACTIVITY_TYPES) as ActivityType[]).map((type) => {
                             const { label, icon: Icon } = ACTIVITY_TYPES[type];
                             const active = data.type === type;
@@ -278,11 +278,11 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                                     aria-pressed={active}
                                     onClick={() => pickType(type)}
                                     className={cn(
-                                        'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold transition-colors',
+                                        'inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs font-bold transition-colors',
                                         active ? 'border-ink bg-ink text-paper' : 'border-field bg-card hover:bg-hover',
                                     )}
                                 >
-                                    <Icon className="size-4" aria-hidden="true" />
+                                    <Icon className="size-3.5" aria-hidden="true" />
                                     {/* as a choice it is an action: a break at the hotel, at any time of day */}
                                     {type === 'hotel' ? 'Torna in hotel' : label}
                                 </button>
@@ -294,7 +294,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                     )}
                 </fieldset>
 
-                <div className="rounded-[18px] border border-line bg-card p-3">
+                <div className="min-w-0 rounded-[18px] border border-line bg-card p-3">
                     <GroupLabel htmlFor="act-title">Cosa</GroupLabel>
                     <PlaceInput
                         id="act-title"
@@ -333,9 +333,9 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                     )}
                 </div>
 
-                <fieldset>
+                <fieldset className="min-w-0">
                     <legend className="mb-1.5 block text-[11px] font-bold tracking-[0.04em] text-mute uppercase">Quando</legend>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-[1.35fr_1fr_1fr] gap-2">
                         <Tile label="Giorno" htmlFor="act-date">
                             <select id="act-date" className={tileControl} value={data.date} onChange={(e) => pickDate(e.target.value)}>
                                 <option value="">Da decidere</option>
@@ -347,7 +347,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                             </select>
                         </Tile>
                         <Tile label="Ora" htmlFor="act-time" disabled={!data.date}>
-                            <input id="act-time" type="time" step={300} className={tileControl} value={data.start_time} disabled={!data.date} onChange={(e) => set('start_time', e.target.value)} />
+                            <input id="act-time" type="time" step={300} className={tileControl} value={data.start_time} disabled={!data.date} onClick={openPicker} onChange={(e) => set('start_time', e.target.value)} />
                         </Tile>
                         <Tile label="Durata" htmlFor="act-duration">
                             <select id="act-duration" className={tileControl} value={data.duration_minutes} onChange={(e) => set('duration_minutes', e.target.value)}>

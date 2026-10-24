@@ -82,5 +82,9 @@ export function Tile({ label, htmlFor, children, disabled }: { label: string; ht
     );
 }
 
-/** The bare control inside a Tile: no border of its own, the tile is the field. */
-export const tileControl = 'w-full min-w-0 appearance-none bg-transparent p-0 text-[15px] font-extrabold text-ink outline-none disabled:cursor-not-allowed';
+/**
+ * The bare control inside a Tile: no border of its own, the tile is the field. 16px or iOS
+ * zooms the page on focus; the picker icon goes, it cut "15:00" to "15:0" in a third of a phone.
+ */
+export const tileControl =
+    'w-full min-w-0 appearance-none bg-transparent p-0 text-base font-extrabold text-ink outline-none disabled:cursor-not-allowed [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-date-and-time-value]:text-left';

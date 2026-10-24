@@ -10,7 +10,7 @@ import { geocodeAddress } from '@/lib/places';
 import { daysBetween, parseDate, type Stay, type TripHeader } from '@/lib/trip';
 import { useFocus } from '@/lib/presence';
 import { useAction } from '@/lib/use-action';
-import { cn } from '@/lib/utils';
+import { cn, openPicker } from '@/lib/utils';
 import { Check, Hash, MapPin } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 
@@ -133,14 +133,14 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
                     {(data.city || data.address) && <p className="mt-2 truncate px-0.5 text-xs text-mute">{[data.address, data.city].filter(Boolean).join(' · ')}</p>}
                 </div>
 
-                <fieldset>
+                <fieldset className="min-w-0">
                     <legend className="mb-1.5 block text-[11px] font-bold tracking-[0.04em] text-mute uppercase">Notti</legend>
                     <div className="grid grid-cols-2 gap-2">
                         <Tile label="Check-in" htmlFor="stay-in">
-                            <input id="stay-in" type="date" min={trip.start_date} max={trip.end_date} className={tileControl} value={data.check_in} onChange={(e) => set('check_in', e.target.value)} required />
+                            <input id="stay-in" type="date" min={trip.start_date} max={trip.end_date} className={tileControl} onClick={openPicker} value={data.check_in} onChange={(e) => set('check_in', e.target.value)} required />
                         </Tile>
                         <Tile label="Check-out" htmlFor="stay-out">
-                            <input id="stay-out" type="date" min={data.check_in} max={trip.end_date} className={tileControl} value={data.check_out} onChange={(e) => set('check_out', e.target.value)} required />
+                            <input id="stay-out" type="date" min={data.check_in} max={trip.end_date} className={tileControl} onClick={openPicker} value={data.check_out} onChange={(e) => set('check_out', e.target.value)} required />
                         </Tile>
                     </div>
                     <p className={cn('mt-1.5 text-xs font-bold', nights ? 'text-leaf' : 'text-mute')} aria-live="polite">
@@ -154,7 +154,7 @@ export function StaySheet({ trip, open, onOpenChange, stay, checkIn }: Props) {
                         <DetailRow
                             icon={MapPin}
                             tint="bg-leaf-soft text-leaf"
-                            label="Indirizzo e città"
+                            label="Indirizzo"
                             value={[data.address, data.city].filter(Boolean).join(' · ') || null}
                             open={openRow === 'where'}
                             onToggle={() => toggleRow('where')}

@@ -7,7 +7,7 @@ import { factsLine, infoLabels, type SuggestedPlace } from '@/lib/describe';
 import { MAX_OPTIONS, optionKey, type Anchor } from '@/lib/options';
 import { ACTIVITY_TYPES, type ActivityOption, type ActivityType, type PlaceInfo } from '@/lib/trip';
 import { cn } from '@/lib/utils';
-import { Check, Loader2, LocateFixed, MapPin, RefreshCw, Sparkles, X } from 'lucide-react';
+import { Check, ChevronRight, Loader2, LocateFixed, MapPin, RefreshCw, Sparkles, X } from 'lucide-react';
 import { useState, type KeyboardEvent } from 'react';
 
 /** A place as the sheets show it: an option, or the activity itself. */
@@ -160,7 +160,7 @@ export function PlaceSheet({
 export function InfoPreview({ info, type, pending, onRefresh, onOpen }: { info: PlaceInfo | null; type: ActivityType; pending: boolean; onRefresh: () => void; onOpen: () => void }) {
     if (pending) {
         return (
-            <p role="status" className="mt-2 flex items-center gap-2 rounded-xl bg-indigo-soft px-3 py-2 text-[13px] font-semibold text-indigo">
+            <p role="status" className="mt-3 flex items-center gap-2 border-t border-line pt-3 text-[13px] font-semibold text-indigo">
                 <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
                 L'AI sta cercando foto e informazioni…
             </p>
@@ -174,18 +174,36 @@ export function InfoPreview({ info, type, pending, onRefresh, onOpen }: { info: 
             </button>
         );
     }
+    const photos = info.photos.length;
     return (
-        <div className="mt-2 flex items-center gap-2.5 rounded-xl border border-line bg-card p-2">
-            <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
-                <Thumb info={info} type={type} className="size-12" />
+        <div className="mt-3 border-t border-line pt-3">
+            <button type="button" onClick={onOpen} className="group flex w-full items-start gap-3 rounded-xl text-left">
+                <span className="relative shrink-0">
+                    <Thumb info={info} type={type} className="size-[72px] rounded-xl" />
+                    {photos > 1 && (
+                        <span className="absolute right-1 bottom-1 rounded-md bg-ink/75 px-1.5 py-0.5 text-[10px] font-bold text-paper">{photos} foto</span>
+                    )}
+                </span>
                 <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-bold text-clay-ink">{factsLine(info) || 'Informazioni dal web'}</span>
-                    <span className="line-clamp-2 text-xs text-mute">{info.summary}</span>
+                    {info.what && <span className="block text-[13px] leading-snug font-bold">{info.what}</span>}
+                    {(info.price || info.hours) && <span className="mt-0.5 block truncate text-xs text-mute">{[info.price, info.hours].filter(Boolean).join(' · ')}</span>}
+                    {info.summary && <span className="mt-1 line-clamp-2 text-xs leading-snug text-ink-2">{info.summary}</span>}
+                    <span className="mt-1.5 flex items-center gap-0.5 text-xs font-bold text-indigo group-hover:underline">
+                        Apri la scheda
+                        <ChevronRight className="size-3.5" aria-hidden="true" />
+                    </span>
                 </span>
             </button>
-            <button type="button" onClick={onRefresh} aria-label="Cerca di nuovo foto e informazioni" className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-field hover:bg-hover">
-                <RefreshCw className="size-4" aria-hidden="true" />
-            </button>
+            <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1 text-[11px] text-faint">
+                    <Sparkles className="size-3" aria-hidden="true" />
+                    Info trovate dall'AI
+                </span>
+                <button type="button" onClick={onRefresh} className="flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-mute hover:bg-hover">
+                    <RefreshCw className="size-3" aria-hidden="true" />
+                    Cerca di nuovo
+                </button>
+            </div>
         </div>
     );
 }
