@@ -7,7 +7,7 @@ import { factsLine, infoLabels, type SuggestedPlace } from '@/lib/describe';
 import { MAX_OPTIONS, optionKey, type Anchor } from '@/lib/options';
 import { ACTIVITY_TYPES, type ActivityOption, type ActivityType, type PlaceInfo } from '@/lib/trip';
 import { cn } from '@/lib/utils';
-import { Check, ChevronRight, Loader2, LocateFixed, MapPin, RefreshCw, Sparkles, X } from 'lucide-react';
+import { Check, ChevronRight, Loader2, LocateFixed, MapPin, RefreshCw, Sparkles, Trash2, X } from 'lucide-react';
 import { useState, type KeyboardEvent } from 'react';
 
 /** A place as the sheets show it: an option, or the activity itself. */
@@ -157,7 +157,22 @@ export function PlaceSheet({
 }
 
 /** The photo and facts of the activity itself, in its form. */
-export function InfoPreview({ info, type, pending, onRefresh, onOpen }: { info: PlaceInfo | null; type: ActivityType; pending: boolean; onRefresh: () => void; onOpen: () => void }) {
+export function InfoPreview({
+    info,
+    type,
+    pending,
+    onRefresh,
+    onRemove,
+    onOpen,
+}: {
+    info: PlaceInfo | null;
+    type: ActivityType;
+    pending: boolean;
+    onRefresh: () => void;
+    /** Drops the photos and info the AI found. */
+    onRemove: () => void;
+    onOpen: () => void;
+}) {
     if (pending) {
         return (
             <p role="status" className="mt-3 flex items-center gap-2 border-t border-line pt-3 text-[13px] font-semibold text-indigo">
@@ -197,12 +212,18 @@ export function InfoPreview({ info, type, pending, onRefresh, onOpen }: { info: 
             <div className="mt-2 flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1 text-[11px] text-faint">
                     <Sparkles className="size-3" aria-hidden="true" />
-                    Info trovate dall'AI
+                    Dall'AI
                 </span>
-                <button type="button" onClick={onRefresh} className="flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-mute hover:bg-hover">
-                    <RefreshCw className="size-3" aria-hidden="true" />
-                    Cerca di nuovo
-                </button>
+                <span className="flex items-center">
+                    <button type="button" onClick={onRefresh} className="flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-mute hover:bg-hover">
+                        <RefreshCw className="size-3" aria-hidden="true" />
+                        Cerca di nuovo
+                    </button>
+                    <button type="button" onClick={onRemove} className="flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-verm-ink hover:bg-verm-soft">
+                        <Trash2 className="size-3" aria-hidden="true" />
+                        Rimuovi
+                    </button>
+                </span>
             </div>
         </div>
     );

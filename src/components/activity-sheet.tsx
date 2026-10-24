@@ -58,6 +58,11 @@ type Row = 'where' | 'options' | 'booking';
 export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft, near, city, stays = [], documentCount = 0, onAddDocument, onMove, activities = [] }: Props) {
     const [data, setData] = useState(initial);
     const { run, pending, error, clearError } = useAction();
+    // what the AI finds is saved right away, apart from the form: its own action keeps "Salva" free
+    const autosave = useAction();
+    // the activity as stored, kept up to date by the autosaves: the prop is the one the sheet
+    // was opened with, so two answers in a row would otherwise overwrite each other
+    const saved = useRef(activity);
     const confirm = useConfirm();
     useFocus(open, activity ? { kind: 'activity', id: activity.id } : { kind: 'new-activity', date: draft?.date ?? null });
     const alsoEditing = usePeersOn((f) => !!activity && f?.kind === 'activity' && f.id === activity.id);
@@ -140,9 +145,21 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
         }
     }
 
+    /**
+     * Stores the AI info of the saved activity without waiting for "Salva": closing the sheet
+     * must not lose it. Only when the saved title is the place described: a title changed in
+     * the form and not saved yet is about another place, and goes with "Salva".
+     */
+    function saveInfo(title: string, info: PlaceInfo | null) {
+        const a = saved.current;
+        if (!a || optionKey(a.title) !== optionKey(title)) return;
+        saved.current = { ...a, info };
+        autosave.run(() => api.updateActivity(a.id, { info }));
+    }
+
     function describeSelf(title: string, address: string | null, placeCity: string | null) {
         if (!title.trim() || NO_INFO.includes(data.type)) return;
-        describe(SELF, title.trim(), address, placeCity, (place) =>
+        describe(SELF, title.trim(), address, placeCity, (place) => {
             setData((d) =>
                 optionKey(d.title) !== optionKey(title)
                     ? d // the title changed meanwhile: this is about another place
@@ -153,28 +170,35 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                           ...(!d.location.trim() && place.address && { location: place.address }),
                           city: d.city || place.city || '',
                       },
-            ),
-        );
+            );
+            saveInfo(title, place.info);
+        });
     }
+
+    const removeInfo = () => {
+        setData((d) => ({ ...d, info: null }));
+        saveInfo(data.title, null);
+    };
 
     function describeOption(o: ActivityOption) {
         const key = optionKey(o.name);
-        describe(key, o.name, o.address, o.city, (place) =>
-            setData((d) => ({
-                ...d,
-                options: d.options.map((x) =>
-                    optionKey(x.name) !== key
-                        ? x
-                        : {
-                              ...x,
-                              info: place.info,
-                              address: x.address ?? place.address,
-                              city: x.city ?? place.city,
-                              ...(x.latitude == null && place.latitude != null && { latitude: place.latitude, longitude: place.longitude }),
-                          },
-                ),
-            })),
-        );
+        const described = (x: ActivityOption, place: DescribedPlace): ActivityOption => ({
+            ...x,
+            info: place.info,
+            address: x.address ?? place.address,
+            city: x.city ?? place.city,
+            ...(x.latitude == null && place.latitude != null && { latitude: place.latitude, longitude: place.longitude }),
+        });
+        describe(key, o.name, o.address, o.city, (place) => {
+            setData((d) => ({ ...d, options: d.options.map((x) => (optionKey(x.name) === key ? described(x, place) : x)) }));
+            // an option already saved keeps its photos even if the sheet is closed without "Salva"
+            const a = saved.current;
+            if (a?.options.some((x) => optionKey(x.name) === key)) {
+                const options = a.options.map((x) => (optionKey(x.name) === key ? described(x, place) : x));
+                saved.current = { ...a, options };
+                autosave.run(() => api.updateActivity(a.id, { options }));
+            }
+        });
     }
 
     // always ask the AI about a new option, even one found on the map: that is where photos come from
@@ -188,6 +212,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
     useEffect(() => {
         if (open) {
             session.current++;
+            saved.current = activity;
             setData(initial());
             clearError();
             ai.reset();
@@ -257,7 +282,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
             }
         >
             <form id="activity-form" onSubmit={submit} className="flex flex-col gap-4">
-                <FormError message={error} />
+                <FormError message={error ?? autosave.error} />
                 {alsoEditing.length > 0 && (
                     <p role="status" className="rounded-xl bg-leaf-soft px-3 py-2 text-[13px] font-semibold text-leaf">
                         Anche {alsoEditing.join(', ')} sta modificando questa attività: salva per ultimo chi ha le informazioni giuste.
@@ -328,6 +353,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                             type={data.type}
                             pending={describing.has(SELF)}
                             onRefresh={() => describeSelf(data.title, data.location || null, data.city || null)}
+                            onRemove={removeInfo}
                             onOpen={() => setShown({ place: { name: data.title, address: data.location || null, city: data.city || null, info: data.info }, index: null })}
                         />
                     )}
