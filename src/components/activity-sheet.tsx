@@ -4,7 +4,7 @@ import { useAskAiPlace } from '@/components/ask-ai-place';
 import { useConfirm } from '@/components/confirm-dialog';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { PlaceInput } from '@/components/place-input';
-import { TimeField } from '@/components/time-field';
+import { DetailRow, DetailRows, GroupLabel, Tile, tileControl } from '@/components/form-rows';
 import { Field, FormError, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
 import { hotelOn } from '@/lib/insights';
@@ -12,10 +12,10 @@ import type { DescribedPlace } from '@/lib/describe';
 import { choosePatch, optionKey, suggestAnchors } from '@/lib/options';
 import { geocodeAddress, type Coordinates } from '@/lib/places';
 import { useFocus, usePeersOn } from '@/lib/presence';
-import { ACTIVITY_TYPES, formatDayMonth, formatWeekdayShort, type Activity, type ActivityOption, type ActivityType, type PlaceInfo, type Stay, type TripHeader } from '@/lib/trip';
+import { ACTIVITY_TYPES, formatDayMonth, formatMinutes, formatWeekdayShort, type Activity, type ActivityOption, type ActivityType, type PlaceInfo, type Stay, type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
 import { cn } from '@/lib/utils';
-import { CalendarSync, Ticket } from 'lucide-react';
+import { ListChecks, MapPin, Ticket } from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 export interface ActivityDraft {
@@ -52,6 +52,8 @@ const HOTEL_TITLE = 'Rientro in hotel';
 const SELF = '\u0000activity';
 // kinds of activity with no place worth describing
 const NO_INFO: ActivityType[] = ['transport', 'hotel', 'note'];
+// the detail rows of the form; one open at a time
+type Row = 'where' | 'options' | 'booking';
 
 export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft, near, city, stays = [], documentCount = 0, onAddDocument, onMove, activities = [] }: Props) {
     const [data, setData] = useState(initial);
@@ -69,6 +71,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
     const [shown, setShown] = useState<{ place: ShownPlace; index: number | null } | null>(null);
     // answers that arrive after the sheet was reopened belong to another form: drop them
     const session = useRef(0);
+    const [openRow, setOpenRow] = useState<Row | null>(null);
     const set = <K extends keyof typeof data>(key: K, value: (typeof data)[K]) => setData((d) => ({ ...d, [key]: value }));
 
     /** Title, address and point of the hotel to go back to on `date`. */
@@ -191,6 +194,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
             setDescribing(new Set());
             setAiError(null);
             setShown(null);
+            setOpenRow(null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, activity?.id, draft?.date, draft?.start_time, draft?.type]);
@@ -227,6 +231,18 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
     };
 
     const target = data.date ? `${formatWeekdayShort(data.date).toLowerCase()} ${formatDayMonth(data.date)}` : 'lista idee';
+    const toggleRow = (row: Row) => setOpenRow((r) => (r === row ? null : row));
+    const chosen = data.options.find((o) => o.chosen);
+    const placeRows = !NO_INFO.includes(data.type);
+    const tickets = documentCount === 0 ? null : documentCount === 1 ? '1 biglietto' : `${documentCount} biglietti`;
+    const booking = !data.booking_required
+        ? 'Non serve'
+        : data.booked
+          ? 'Prenotata'
+          : data.booking_deadline
+            ? `Entro il ${formatDayMonth(data.booking_deadline)}`
+            : 'Da prenotare';
+    const end = data.start_time && data.duration_minutes ? clockAfter(data.start_time, Number(data.duration_minutes)) : null;
 
     return (
         <BottomSheet
@@ -247,27 +263,11 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                         Anche {alsoEditing.join(', ')} sta modificando questa attività: salva per ultimo chi ha le informazioni giuste.
                     </p>
                 )}
-                {activity && onMove && (
-                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-card px-3.5 py-2.5">
-                        <span className="flex min-w-0 items-center gap-2 text-sm font-bold">
-                            <CalendarSync className="size-4 shrink-0 text-indigo" aria-hidden="true" />
-                            <span className="truncate">{activity.date ? `${formatWeekdayShort(activity.date).toLowerCase()} ${formatDayMonth(activity.date)}` : 'Nella lista idee'}</span>
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                onOpenChange(false);
-                                onMove(activity);
-                            }}
-                            className="h-9 shrink-0 rounded-[10px] bg-indigo px-3 text-xs font-bold text-on-indigo hover:bg-indigo-deep"
-                        >
-                            {activity.date ? 'Sposta di giorno' : 'Metti in un giorno'}
-                        </button>
-                    </div>
-                )}
+
                 <fieldset>
                     <legend className="sr-only">Tipo</legend>
-                    <div className="flex flex-wrap gap-2">
+                    {/* one row that scrolls: the type is a quick pick, not a block of buttons */}
+                    <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-0.5 [scrollbar-width:none]">
                         {(Object.keys(ACTIVITY_TYPES) as ActivityType[]).map((type) => {
                             const { label, icon: Icon } = ACTIVITY_TYPES[type];
                             const active = data.type === type;
@@ -278,7 +278,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                                     aria-pressed={active}
                                     onClick={() => pickType(type)}
                                     className={cn(
-                                        'inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold transition-colors',
+                                        'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold transition-colors',
                                         active ? 'border-ink bg-ink text-paper' : 'border-field bg-card hover:bg-hover',
                                     )}
                                 >
@@ -290,13 +290,12 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                         })}
                     </div>
                     {data.type === 'hotel' && (
-                        <p className="mt-2 text-xs text-mute">
-                            Una pausa in hotel, anche nel pomeriggio: nome e indirizzo li prendo dall'alloggio di quel giorno. Scegli tu orario e durata.
-                        </p>
+                        <p className="mt-2 text-xs text-mute">Una pausa in hotel, anche nel pomeriggio: nome e indirizzo li prendo dall'alloggio di quel giorno.</p>
                     )}
                 </fieldset>
 
-                <Field label="Cosa (scrivi un luogo per i suggerimenti)" htmlFor="act-title">
+                <div className="rounded-[18px] border border-line bg-card p-3">
+                    <GroupLabel htmlFor="act-title">Cosa</GroupLabel>
                     <PlaceInput
                         id="act-title"
                         value={data.title}
@@ -323,7 +322,7 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                     />
                     {ai.element}
                     {/* a slot with options ("Cena") is described by its options, not by its title */}
-                    {!NO_INFO.includes(data.type) && data.title.trim().length >= 3 && (data.info || data.options.length === 0) && (
+                    {placeRows && data.title.trim().length >= 3 && (data.info || data.options.length === 0) && (
                         <InfoPreview
                             info={data.info}
                             type={data.type}
@@ -332,126 +331,167 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
                             onOpen={() => setShown({ place: { name: data.title, address: data.location || null, city: data.city || null, info: data.info }, index: null })}
                         />
                     )}
-                </Field>
-
-                <Field label="Indirizzo" htmlFor="act-address">
-                    <AddressField
-                        id="act-address"
-                        city={data.city || city}
-                        near={near}
-                        value={data.location}
-                        hasPosition={data.latitude != null}
-                        onChange={(location) => setData((d) => ({ ...d, location, latitude: null, longitude: null }))}
-                        onPick={({ address, ...pick }) => setData((d) => ({ ...d, ...pick, location: address, city: d.city || pick.city || '' }))}
-                    />
-                </Field>
-
-                <Field label="Città" htmlFor="act-city">
-                    <PlaceInput
-                        id="act-city"
-                        kind="city"
-                        value={data.city}
-                        onChange={(city) => set('city', city)}
-                        onSelect={(place) => set('city', place.name)}
-                        near={near}
-                        maxLength={120}
-                    />
-                </Field>
-
-                {(!NO_INFO.includes(data.type) || data.options.length > 0) && (
-                    <OptionsField
-                        tripId={trip.id}
-                        type={data.type}
-                        options={data.options}
-                        pending={describing}
-                        onAdd={addOption}
-                        onRemove={removeOption}
-                        onOpen={(index) => setShown({ place: data.options[index], index })}
-                        onDescribe={(index) => describeOption(data.options[index])}
-                        near={near}
-                        city={data.city || city}
-                        title={data.title}
-                        date={data.date || null}
-                        startTime={data.start_time || null}
-                        anchors={suggestAnchors(activities, stays, data.date || null, data.start_time || null, activity?.id)}
-                    />
-                )}
-                <FormError message={aiError} />
-
-                <Field label="Giorno" htmlFor="act-date">
-                    <select id="act-date" className={inputClass} value={data.date} onChange={(e) => pickDate(e.target.value)}>
-                        <option value="">Lista idee (da decidere)</option>
-                        {days.map((d) => (
-                            <option key={d.date} value={d.date}>
-                                Giorno {d.number} · {formatWeekdayShort(d.date).toLowerCase()} {formatDayMonth(d.date)}
-                            </option>
-                        ))}
-                    </select>
-                </Field>
-
-                <TimeField
-                    value={data.start_time}
-                    onChange={(time) => set('start_time', time)}
-                    duration={data.duration_minutes}
-                    onDurationChange={(minutes) => set('duration_minutes', minutes)}
-                    durations={DURATIONS}
-                    hasDate={!!data.date}
-                />
-
-                <Field label={`Costo a testa (${trip.currency})`} htmlFor="act-cost">
-                    <input id="act-cost" inputMode="numeric" className={inputClass} value={data.cost} onChange={(e) => set('cost', e.target.value.replace(/\D/g, ''))} />
-                </Field>
-
-                <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-3.5">
-                    <label className="flex min-h-8 items-center justify-between text-sm font-bold">
-                        Serve prenotare
-                        <input type="checkbox" className="size-5 accent-indigo" checked={data.booking_required} onChange={(e) => set('booking_required', e.target.checked)} />
-                    </label>
-                    {data.booking_required && (
-                        <>
-                            <div className="grid grid-cols-2 gap-3">
-                                <Field label="Entro il" htmlFor="act-deadline">
-                                    <input id="act-deadline" type="date" className={inputClass} value={data.booking_deadline} onChange={(e) => set('booking_deadline', e.target.value)} />
-                                </Field>
-                                <label className="mt-6 flex h-11 items-center justify-between gap-2 rounded-xl border border-field px-3 text-sm font-bold">
-                                    Fatta
-                                    <input type="checkbox" className="size-5 accent-leaf" checked={data.booked} onChange={(e) => set('booked', e.target.checked)} />
-                                </label>
-                            </div>
-                            <Field label="Link prenotazione" htmlFor="act-url">
-                                <input id="act-url" type="url" className={inputClass} value={data.booking_url} onChange={(e) => set('booking_url', e.target.value)} placeholder="https://" />
-                            </Field>
-                        </>
-                    )}
                 </div>
 
-                {activity && onAddDocument && (
-                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-card px-3.5 py-2.5">
-                        <span className="flex items-center gap-2 text-sm font-bold">
-                            <Ticket className="size-4 text-indigo" aria-hidden="true" />
-                            {documentCount === 0 ? 'Nessun biglietto' : documentCount === 1 ? '1 biglietto o documento' : `${documentCount} biglietti o documenti`}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                onOpenChange(false);
-                                onAddDocument(activity.id);
-                            }}
-                            className="h-9 shrink-0 rounded-[10px] border border-field px-3 text-xs font-bold hover:bg-hover"
-                        >
-                            Aggiungi biglietto
-                        </button>
+                <fieldset>
+                    <legend className="mb-1.5 block text-[11px] font-bold tracking-[0.04em] text-mute uppercase">Quando</legend>
+                    <div className="grid grid-cols-3 gap-2">
+                        <Tile label="Giorno" htmlFor="act-date">
+                            <select id="act-date" className={tileControl} value={data.date} onChange={(e) => pickDate(e.target.value)}>
+                                <option value="">Da decidere</option>
+                                {days.map((d) => (
+                                    <option key={d.date} value={d.date}>
+                                        {formatWeekdayShort(d.date).toLowerCase()} {formatDayMonth(d.date)}
+                                    </option>
+                                ))}
+                            </select>
+                        </Tile>
+                        <Tile label="Ora" htmlFor="act-time" disabled={!data.date}>
+                            <input id="act-time" type="time" step={300} className={tileControl} value={data.start_time} disabled={!data.date} onChange={(e) => set('start_time', e.target.value)} />
+                        </Tile>
+                        <Tile label="Durata" htmlFor="act-duration">
+                            <select id="act-duration" className={tileControl} value={data.duration_minutes} onChange={(e) => set('duration_minutes', e.target.value)}>
+                                <option value="">Non so</option>
+                                {DURATIONS.map((m) => (
+                                    <option key={m} value={m}>
+                                        {formatMinutes(m)}
+                                    </option>
+                                ))}
+                            </select>
+                        </Tile>
                     </div>
-                )}
+                    <p className="mt-1.5 text-xs text-mute" aria-live="polite">
+                        {!data.date
+                            ? 'Senza giorno resta nella lista idee.'
+                            : !data.start_time
+                              ? 'Senza orario: compare in fondo al giorno.'
+                              : end
+                                ? `Dalle ${data.start_time} alle ${end}`
+                                : `Dalle ${data.start_time}`}
+                    </p>
+                </fieldset>
 
-                <Field label="Note" htmlFor="act-notes">
-                    <textarea id="act-notes" rows={3} className={cn(inputClass, 'h-auto py-2.5')} value={data.notes} onChange={(e) => set('notes', e.target.value)} />
-                </Field>
+                <div>
+                    <GroupLabel>Dettagli</GroupLabel>
+                    <FormError message={aiError} />
+                    <DetailRows>
+                        <DetailRow icon={MapPin} tint="bg-leaf-soft text-leaf" label="Dove" value={data.location || data.city || null} open={openRow === 'where'} onToggle={() => toggleRow('where')}>
+                            <AddressField
+                                id="act-address"
+                                city={data.city || city}
+                                near={near}
+                                value={data.location}
+                                hasPosition={data.latitude != null}
+                                onChange={(location) => setData((d) => ({ ...d, location, latitude: null, longitude: null }))}
+                                onPick={({ address, ...pick }) => setData((d) => ({ ...d, ...pick, location: address, city: d.city || pick.city || '' }))}
+                            />
+                            <Field label="Città" htmlFor="act-city">
+                                <PlaceInput id="act-city" kind="city" value={data.city} onChange={(city) => set('city', city)} onSelect={(place) => set('city', place.name)} near={near} maxLength={120} />
+                            </Field>
+                        </DetailRow>
+
+                        {(placeRows || data.options.length > 0) && (
+                            <DetailRow
+                                icon={ListChecks}
+                                tint="bg-indigo-soft text-indigo"
+                                label="Alternative"
+                                value={chosen ? `Scelto: ${chosen.name}` : data.options.length ? `${data.options.length} da scegliere` : null}
+                                open={openRow === 'options'}
+                                onToggle={() => toggleRow('options')}
+                            >
+                                <OptionsField
+                                    tripId={trip.id}
+                                    type={data.type}
+                                    options={data.options}
+                                    pending={describing}
+                                    onAdd={addOption}
+                                    onRemove={removeOption}
+                                    onOpen={(index) => setShown({ place: data.options[index], index })}
+                                    onDescribe={(index) => describeOption(data.options[index])}
+                                    near={near}
+                                    city={data.city || city}
+                                    title={data.title}
+                                    date={data.date || null}
+                                    startTime={data.start_time || null}
+                                    anchors={suggestAnchors(activities, stays, data.date || null, data.start_time || null, activity?.id)}
+                                />
+                            </DetailRow>
+                        )}
+
+                        {placeRows && (
+                            <DetailRow
+                                icon={Ticket}
+                                tint="bg-sun-soft text-sun-ink"
+                                label="Prenotazione e biglietti"
+                                value={[booking, tickets].filter(Boolean).join(' · ')}
+                                open={openRow === 'booking'}
+                                onToggle={() => toggleRow('booking')}
+                            >
+                                <label className="flex min-h-11 items-center justify-between text-sm font-bold">
+                                    Serve prenotare
+                                    <input type="checkbox" className="size-5 accent-indigo" checked={data.booking_required} onChange={(e) => set('booking_required', e.target.checked)} />
+                                </label>
+                                {data.booking_required && (
+                                    <>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <Field label="Entro il" htmlFor="act-deadline">
+                                                <input id="act-deadline" type="date" className={inputClass} value={data.booking_deadline} onChange={(e) => set('booking_deadline', e.target.value)} />
+                                            </Field>
+                                            <label className="mt-6 flex h-11 items-center justify-between gap-2 rounded-xl border border-field px-3 text-sm font-bold">
+                                                Fatta
+                                                <input type="checkbox" className="size-5 accent-leaf" checked={data.booked} onChange={(e) => set('booked', e.target.checked)} />
+                                            </label>
+                                        </div>
+                                        <Field label="Link prenotazione" htmlFor="act-url">
+                                            <input id="act-url" type="url" className={inputClass} value={data.booking_url} onChange={(e) => set('booking_url', e.target.value)} placeholder="https://" />
+                                        </Field>
+                                    </>
+                                )}
+                                {activity && onAddDocument ? (
+                                    <div className="flex items-center justify-between gap-3 rounded-xl bg-sunken px-3 py-2">
+                                        <span className="text-[13px] font-bold">{tickets ?? 'Nessun biglietto'}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                onOpenChange(false);
+                                                onAddDocument(activity.id);
+                                            }}
+                                            className="h-9 shrink-0 rounded-[10px] border border-field bg-card px-3 text-xs font-bold hover:bg-hover"
+                                        >
+                                            Aggiungi biglietto
+                                        </button>
+                                    </div>
+                                ) : (
+                                    !activity && <p className="text-xs text-mute">I biglietti li carichi dopo aver salvato l'attività.</p>
+                                )}
+                            </DetailRow>
+                        )}
+                    </DetailRows>
+                </div>
 
                 {activity && (
-                    <button type="button" onClick={remove} className="h-11 text-sm font-bold text-verm-ink hover:underline">
-                        Elimina attività
-                    </button>
+                    <p className="flex items-center justify-center gap-1 text-[13px]">
+                        {onMove && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        onOpenChange(false);
+                                        onMove(activity);
+                                    }}
+                                    className="h-10 px-2 font-bold text-ink-2 hover:underline"
+                                >
+                                    {activity.date ? 'Sposta di giorno' : 'Metti in un giorno'}
+                                </button>
+                                <span className="text-faint" aria-hidden="true">
+                                    ·
+                                </span>
+                            </>
+                        )}
+                        <button type="button" onClick={remove} className="h-10 px-2 font-bold text-verm-ink hover:underline">
+                            Elimina
+                        </button>
+                    </p>
                 )}
             </form>
             <PlaceSheet
@@ -464,4 +504,10 @@ export function ActivitySheet({ trip, days, open, onOpenChange, activity, draft,
             />
         </BottomSheet>
     );
+}
+
+/** "15:00" + 120 → "17:00", wrapping past midnight. */
+function clockAfter(time: string, minutes: number): string {
+    const total = Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5)) + minutes;
+    return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }

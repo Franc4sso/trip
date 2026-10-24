@@ -234,11 +234,9 @@ export function OptionsField({ tripId, type, options, pending, onAdd, onRemove, 
     };
 
     return (
-        <div className="flex flex-col gap-2.5 rounded-2xl border border-line bg-card p-3.5">
-            <div>
-                <p className="text-sm font-bold">Opzioni tra cui scegliere</p>
-                <p className="mt-0.5 text-xs text-mute">Più posti per lo stesso momento, da decidere sul posto. Scrivi un luogo: foto e informazioni le cerca l'AI.</p>
-            </div>
+        // it sits in the "Alternative" row of the form, which already names it
+        <div className="flex flex-col gap-2.5">
+            <p className="text-xs text-mute">Più posti per lo stesso momento, da decidere sul posto. Scrivi un luogo: foto e informazioni le cerca l'AI.</p>
             {options.length > 0 && (
                 <ul className="flex flex-col gap-1.5">
                     {options.map((o, i) => {

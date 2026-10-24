@@ -19,7 +19,6 @@ import {
     ACTIVITY_TYPES,
     deadlineLabel,
     formatMinutes,
-    formatMoney,
     formatWeekday,
     StayIcon,
     tripLength,
@@ -90,7 +89,6 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
     // suggest places around where we sleep, else around today's other activities
     const anchor = stay?.latitude != null ? stay : activities.find((a) => a.latitude != null);
     const near = anchor?.latitude != null && anchor.longitude != null ? { latitude: anchor.latitude, longitude: anchor.longitude } : null;
-    const costPerHead = activities.reduce((sum, a) => sum + (a.cost ?? 0), 0);
 
     const { data: documents = [] } = useDocuments(trip.id);
     const docSheets = useDocumentSheets(trip, allActivities, stays);
@@ -157,11 +155,6 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
                 <Chip className={cn('border', day.load === 'full' ? 'border-verm bg-verm-soft text-verm-ink' : 'border-line bg-card text-ink')}>
                     {day.planned_minutes > 0 ? `${formatMinutes(day.planned_minutes)} pianificate` : 'Niente in programma'}
                 </Chip>
-                {costPerHead > 0 && (
-                    <Chip className="border border-line bg-card text-ink">
-                        {formatMoney(costPerHead, trip.currency)} a testa
-                    </Chip>
-                )}
             </div>
 
             {error && <p role="alert" className="mt-3 rounded-xl bg-verm-soft px-3 py-2 text-center text-[13px] font-semibold text-verm-ink">{error}</p>}
@@ -213,7 +206,7 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
                             )}
                             <li className="flex gap-2.5">
                                 <time className="w-11 shrink-0 pt-3 text-right text-xs font-bold text-mute">{a.start_time}</time>
-                                <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} onChoose={(i) => choose(a, i)} onShow={(index) => setShown({ activity: a, index })} />
+                                <ActivityCard activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} onChoose={(i) => choose(a, i)} onShow={(index) => setShown({ activity: a, index })} />
                                 <TicketButton docs={docsOf(a)} onOpen={(docs) => docSheets.view(docs[0], docs)} />
                             </li>
                         </Fragment>
@@ -226,7 +219,7 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
                 {untimed.map((a) => (
                     <li key={a.id} className="flex gap-2.5">
                         <span className="w-11 shrink-0" />
-                        <ActivityCard currency={trip.currency} activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} onChoose={(i) => choose(a, i)} onShow={(index) => setShown({ activity: a, index })} />
+                        <ActivityCard activity={a} onOpen={() => openEdit(a)} editable={trip.can_edit} picked={picked ? picked.has(a.id) : undefined} onChoose={(i) => choose(a, i)} onShow={(index) => setShown({ activity: a, index })} />
                         <TicketButton docs={docsOf(a)} onOpen={(docs) => docSheets.view(docs[0], docs)} />
                     </li>
                 ))}
@@ -347,7 +340,6 @@ function fitting(ideas: Activity[], gap: Gap, city: string | null): Activity[] {
 
 function ActivityCard({
     activity: a,
-    currency,
     onOpen,
     editable,
     picked,
@@ -355,7 +347,6 @@ function ActivityCard({
     onShow,
 }: {
     activity: Activity;
-    currency: string;
     onOpen: () => void;
     editable: boolean;
     /** Selection state while picking activities to move; undefined when not selecting. */
@@ -397,7 +388,7 @@ function ActivityCard({
                 <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold">{a.title}</span>
                     <span className="mt-px block text-xs text-mute">
-                        {[meta.label, a.duration_minutes ? formatMinutes(a.duration_minutes) : null, a.location, a.cost ? `${formatMoney(a.cost, currency)} a testa` : null]
+                        {[meta.label, a.duration_minutes ? formatMinutes(a.duration_minutes) : null, a.location]
                             .filter(Boolean)
                             .join(' · ')}
                     </span>
