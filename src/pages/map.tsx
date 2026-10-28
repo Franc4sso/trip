@@ -7,7 +7,7 @@ import { TripCalendar } from '@/components/trip-calendar';
 import TripLayout from '@/components/trip-layout';
 import { FormError } from '@/components/ui';
 import { api } from '@/lib/api';
-import { computeInsights, dayStays, startMinute } from '@/lib/insights';
+import { addDays, afterMidnight, computeInsights, dayStays, isHotelBreak, startMinute } from '@/lib/insights';
 import { paths } from '@/lib/paths';
 import type { Coordinates } from '@/lib/places';
 import { formatKm, routeKm, shortestOrder, transitHint, withinWalk, type Leg } from '@/lib/route';
@@ -53,9 +53,18 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
         stripRef.current?.querySelector('[aria-current="date"]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
     }, [date]);
 
-    const ofDay = activities
-        .filter((a) => a.date === date && a.type !== 'note')
-        .sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99') || a.id - b.id);
+    // A night out goes on past midnight: tomorrow's first hours (the club at 00:30) are walked
+    // tonight, before going back to bed; on the next day's map they are already done.
+    const tomorrow = addDays(date, 1);
+    const carried = days.includes(tomorrow) ? afterMidnight(activities, tomorrow, trip.night_out_ends).filter((a) => !isHotelBreak(a)) : [];
+    const done = days.includes(addDays(date, -1)) ? afterMidnight(activities, date, trip.night_out_ends) : [];
+    const carriedIds = new Set(carried.map((a) => a.id));
+    const ofDay = [
+        ...activities
+            .filter((a) => a.date === date && a.type !== 'note' && !done.includes(a))
+            .sort((a, b) => (a.start_time ?? '99').localeCompare(b.start_time ?? '99') || a.id - b.id),
+        ...carried,
+    ];
     const stops = ofDay.filter(located);
     const missing = ofDay.filter((a) => !located(a));
     const coords = stops.map((a) => ({ latitude: a.latitude!, longitude: a.longitude! }));
@@ -92,7 +101,7 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
 
     // only sightseeing with a time can move: we swap their time slots.
     // Transfers and meals stay where they are (a dinner is not a morning visit).
-    const timed = stops.filter((a) => a.start_time && (a.type === 'visit' || a.type === 'experience' || a.type === 'shopping'));
+    const timed = stops.filter((a) => a.start_time && !carriedIds.has(a.id) && (a.type === 'visit' || a.type === 'experience' || a.type === 'shopping'));
     const timedCoords = timed.map((a) => ({ latitude: a.latitude!, longitude: a.longitude! }));
     const best = shortestOrder(timedCoords, home);
     const currentKm = routeKm(timedCoords, home);
@@ -121,7 +130,7 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
     ];
     // today, the first stop not over yet (or the bed when they all are); any other day, the first one
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const notOver = stops.findIndex((a) => !a.start_time || startMinute(a)! + (a.duration_minutes ?? 60) > nowMinutes);
+    const notOver = stops.findIndex((a) => !a.start_time || startMinute(a)! + (carriedIds.has(a.id) ? 24 * 60 : 0) + (a.duration_minutes ?? 60) > nowMinutes);
     const upcoming = date !== today ? 0 : notOver === -1 ? targets.length - 1 : notOver;
 
     const scrollToStop = (id: string) => document.getElementById(`stop-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -241,7 +250,10 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
                                 <span className="block truncate text-sm font-bold">{a.title}</span>
                                 <span className="block truncate text-xs text-mute">{[ACTIVITY_TYPES[a.type].label, a.location].filter(Boolean).join(' · ')}</span>
                             </span>
-                            <span className="text-xs font-semibold text-mute">{a.start_time ?? '—'}</span>
+                            <span className="text-xs font-semibold text-mute">
+                                {a.start_time ?? '—'}
+                                {carriedIds.has(a.id) && <span className="block text-[10px]">dopo mezzanotte</span>}
+                            </span>
                             <button
                                 onClick={() => setNav(i)}
                                 aria-label={`Portami a ${a.title}`}
@@ -256,6 +268,16 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
                 {legHome && <LegRow leg={legHome} from={sameStay ? 'Ritorno' : "All'alloggio"} />}
                 {night && <StayRow stay={night} label="Notte" divided={!legHome && stops.length > 0} onGo={located(night) ? () => setNav(targets.length - 1) : undefined} />}
             </ol>
+
+            {done.length > 0 && (
+                <p className="mt-2 text-xs text-mute">
+                    Dopo mezzanotte: {done.map((a) => `${a.title} (${a.start_time})`).join(', ')}. Fa parte della serata di ieri,{' '}
+                    <button onClick={() => setParams({ day: addDays(date, -1) }, { replace: true })} className="font-bold text-indigo hover:underline">
+                        la trovi lì
+                    </button>
+                    .
+                </p>
+            )}
 
             {missing.length > 0 && (
                 <p className="mt-2 text-xs text-mute">

@@ -27,6 +27,8 @@ export interface Trip {
     end_date: string;
     color: string;
     currency: string;
+    /** Minutes after midnight until which a night out goes on (0 = off). */
+    night_out_ends: number;
 }
 
 export interface Activity {

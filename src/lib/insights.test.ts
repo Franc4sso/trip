@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clashesOn, computeInsights, dayEndsAt, dayStays, hotelOn } from './insights';
+import { afterMidnight, clashesOn, computeInsights, dayEndsAt, dayStays, hotelOn } from './insights';
 import type { Activity, Stay } from './trip';
 
 const trip = { start_date: '2026-11-03', end_date: '2026-11-06' };
@@ -187,5 +187,23 @@ describe('moving to another day', () => {
         const note = activity({ date: '2026-11-04', start_time: '10:30', type: 'note' });
         expect(clashesOn([note], moving, '2026-11-04')).toEqual([]);
         expect(clashesOn([activity({ date: '2026-11-04', start_time: '10:00' })], { ...moving, start_time: null }, '2026-11-04')).toEqual([]);
+    });
+});
+
+describe('afterMidnight', () => {
+    it('keeps the first hours of the day, not transfers or notes', () => {
+        const club = activity({ date: '2026-11-07', start_time: '00:30', type: 'experience' });
+        const back = activity({ date: '2026-11-07', start_time: '02:30', type: 'hotel', title: 'Rientro in hotel' });
+        const flight = activity({ date: '2026-11-07', start_time: '03:00', type: 'transport' });
+        const spa = activity({ date: '2026-11-07', start_time: '11:00', type: 'experience' });
+        const other = activity({ date: '2026-11-06', start_time: '01:00', type: 'experience' });
+        expect(afterMidnight([spa, back, flight, club, other], '2026-11-07')).toEqual([club, back]);
+    });
+
+    it('follows the trip setting, and 0 turns it off', () => {
+        const club = activity({ date: '2026-11-07', start_time: '00:30', type: 'experience' });
+        const late = activity({ date: '2026-11-07', start_time: '04:30', type: 'experience' });
+        expect(afterMidnight([club, late], '2026-11-07', 300)).toEqual([club, late]);
+        expect(afterMidnight([club, late], '2026-11-07', 0)).toEqual([]);
     });
 });

@@ -5,6 +5,7 @@ import { ErrorScreen, WithTrip } from '@/components/states';
 import TripLayout from '@/components/trip-layout';
 import { Field, FormError, IconLink, inputClass, PrimaryButton } from '@/components/ui';
 import { api } from '@/lib/api';
+import { NIGHT_OUT_ENDS } from '@/lib/insights';
 import { paths } from '@/lib/paths';
 import { type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
@@ -15,6 +16,8 @@ import { useNavigate, useParams } from 'react-router';
 
 const COLORS = ['#2F43C9', '#C7402A', '#1F7A4D', '#7A4BC2', '#A85A12', '#0E7490'];
 const MAX_DAYS = 90;
+// until when a night out can go on: off, or 01:00 to 06:00
+const NIGHT_OUT_CHOICES = [0, 60, 120, 180, 240, 300, 360];
 
 
 export default function TripFormRoute() {
@@ -37,6 +40,7 @@ function TripForm({ trip }: { trip?: TripHeader }) {
         currency: trip?.currency ?? 'EUR',
     });
     const set = <K extends keyof typeof data>(key: K, value: string) => setData((d) => ({ ...d, [key]: value }));
+    const [nightOutEnds, setNightOutEnds] = useState(trip?.night_out_ends ?? NIGHT_OUT_ENDS);
 
     const submit = async (e: FormEvent) => {
         e.preventDefault();
@@ -48,7 +52,7 @@ function TripForm({ trip }: { trip?: TripHeader }) {
         const input = { ...data, name: data.name.trim(), destination: data.destination.trim() || null };
         let id = trip?.id;
         const ok = await run(async () => {
-            if (trip) await api.updateTrip(trip.id, input);
+            if (trip) await api.updateTrip(trip.id, { ...input, night_out_ends: nightOutEnds });
             else id = await api.createTrip(input);
         });
         if (ok && id) navigate(paths.trip(id), { replace: true });
@@ -127,6 +131,24 @@ function TripForm({ trip }: { trip?: TripHeader }) {
                         </select>
                     </Field>
                 </div>
+
+                {trip && (
+                    <section className="flex flex-col gap-3 border-t border-line pt-4">
+                        <h2 className="text-sm font-extrabold">Impostazioni</h2>
+                        <Field label="La serata finisce alle" htmlFor="night_out_ends">
+                            <select id="night_out_ends" className={inputClass} value={nightOutEnds} onChange={(e) => setNightOutEnds(Number(e.target.value))}>
+                                {NIGHT_OUT_CHOICES.map((m) => (
+                                    <option key={m} value={m}>
+                                        {m === 0 ? 'A mezzanotte' : `${String(m / 60).padStart(2, '0')}:00`}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="mt-1 text-xs text-mute">
+                                Le attività del giorno dopo prima di quest'ora fanno parte della serata prima: sulla mappa il rientro in alloggio arriva dopo di loro.
+                            </p>
+                        </Field>
+                    </section>
+                )}
 
                 <PrimaryButton type="submit" disabled={pending} className="mt-2">
                     {trip ? 'Salva' : 'Crea viaggio'}

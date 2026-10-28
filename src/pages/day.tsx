@@ -1,7 +1,7 @@
 import { WithTrip } from '@/components/states';
 import { api } from '@/lib/api';
 import { factsLine } from '@/lib/describe';
-import { computeInsights, hotelOn } from '@/lib/insights';
+import { addDays, afterMidnight, computeInsights, hotelOn, isHotelBreak } from '@/lib/insights';
 import { choosePatch } from '@/lib/options';
 import { paths } from '@/lib/paths';
 import { namesSentence, usePeersOn } from '@/lib/presence';
@@ -102,6 +102,9 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
 
     // tonight's hotel, or last night's on check-out day
     const hotel = hotelOn(stays, day.date);
+    // the night goes on past midnight: bed comes after tomorrow's first hours
+    const tomorrow = addDays(day.date, 1);
+    const lastOut = days.some((d) => d.date === tomorrow) ? afterMidnight(allActivities, tomorrow, trip.night_out_ends).filter((a) => !isHotelBreak(a)).pop() : undefined;
 
     const openNew = (draft: ActivityDraft = {}) => setSheet({ open: true, activity: null, draft: { date: day.date, ...draft } });
     const backToHotel = (startTime: string | null) => openNew({ type: 'hotel', start_time: startTime });
@@ -237,6 +240,11 @@ function DayPage({ trip, day, days, activities, stay, stays, ideas, allActivitie
                     <StayIcon className="size-5 shrink-0" aria-hidden="true" />
                     <p className="min-w-0 flex-1 text-[13px]">
                         <b>{stay ? 'Notte:' : 'Check-out:'}</b> {hotel.name} · {hotel.city}
+                        {stay && lastOut && (
+                            <span className="block text-xs opacity-80">
+                                Si rientra dopo {lastOut.title} ({lastOut.start_time}, dopo mezzanotte)
+                            </span>
+                        )}
                     </p>
                 </div>
             )}

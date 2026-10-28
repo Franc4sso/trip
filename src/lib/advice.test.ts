@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AdviceSchema, itineraryHash, itineraryText } from './advice';
 import type { Activity, Stay } from './types';
 
-const trip = { id: 1, name: 'Giappone', destination: 'Kyoto', start_date: '2026-11-06', end_date: '2026-11-08', color: '#2F43C9', currency: 'JPY' };
+const trip = { id: 1, name: 'Giappone', destination: 'Kyoto', start_date: '2026-11-06', end_date: '2026-11-08', color: '#2F43C9', currency: 'JPY', night_out_ends: 240 };
 
 const activity = (attrs: Partial<Activity>): Activity => ({
     id: 1,

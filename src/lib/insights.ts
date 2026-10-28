@@ -72,6 +72,20 @@ export function clashesOn<A extends Pick<Activity, 'id' | 'date' | 'start_time' 
     });
 }
 
+/** By default, before 04:00 a stop is still the previous night out, not the new day. */
+export const NIGHT_OUT_ENDS = 4 * 60;
+
+/**
+ * The stops on `date` that carry on the night before (a club at 00:30): they come after
+ * the previous day's last stop, and the way back to bed comes after them. Transport is
+ * left out (a 03:30 flight is an early start, not a night out), as are notes.
+ */
+export function afterMidnight<A extends Pick<Activity, 'date' | 'start_time' | 'type' | 'title'>>(activities: A[], date: string, until = NIGHT_OUT_ENDS): A[] {
+    return activities
+        .filter((a) => a.date === date && a.type !== 'note' && a.type !== 'transport' && startMinute(a) !== null && startMinute(a)! < until)
+        .sort((a, b) => a.start_time!.localeCompare(b.start_time!));
+}
+
 /** The hotel to go back to on `date`: tonight's, or last night's on check-out day. */
 export function hotelOn<S extends Pick<Stay, 'check_in' | 'check_out'>>(stays: S[], date: string): S | undefined {
     const { morning, night } = dayStays(stays, date);

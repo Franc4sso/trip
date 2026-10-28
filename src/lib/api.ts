@@ -4,11 +4,12 @@ import { useUser } from './auth';
 import { openChannel } from './channels';
 import type { DescribedPlace, DescribeRequest, SuggestedPlace, SuggestRequest } from './describe';
 import type { Locate, LocateRequest } from './locate';
+import { NIGHT_OUT_ENDS } from './insights';
 import { supabase } from './supabase';
 import type { Activity, Member, Role, Stay, Trip, TripHeader } from './trip';
 
 // invite_token is not selectable: always list trip columns explicitly
-const TRIP_COLUMNS = 'id, name, destination, start_date, end_date, color, currency';
+const TRIP_COLUMNS = 'id, name, destination, start_date, end_date, color, currency, night_out_ends';
 const ACTIVITY_COLUMNS =
     'id, trip_id, created_by, date, start_time, duration_minutes, type, title, location, city, notes, cost, booking_required, booking_deadline, booked, booking_url, latitude, longitude, options, info';
 const STAY_COLUMNS = 'id, trip_id, name, city, address, check_in, check_out, confirmed, booking_ref, cost, notes, latitude, longitude';
@@ -37,6 +38,7 @@ function header(row: Trip, memberRows: MemberRow[], userId: string): TripHeader 
         end_date: row.end_date,
         color: row.color,
         currency: row.currency,
+        night_out_ends: row.night_out_ends ?? NIGHT_OUT_ENDS,
         role,
         can_edit: role === 'owner' || role === 'editor',
         members,
@@ -183,7 +185,7 @@ export function useTripRealtime(id: number) {
 
 export type ActivityInput = Omit<Activity, 'id' | 'trip_id' | 'created_by'>;
 export type StayInput = Omit<Stay, 'id' | 'trip_id'>;
-export type TripInput = Pick<Trip, 'name' | 'destination' | 'start_date' | 'end_date' | 'color' | 'currency'>;
+export type TripInput = Pick<Trip, 'name' | 'destination' | 'start_date' | 'end_date' | 'color' | 'currency'> & Partial<Pick<Trip, 'night_out_ends'>>;
 
 export const api = {
     createTrip: (t: TripInput) =>
