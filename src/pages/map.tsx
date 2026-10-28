@@ -10,7 +10,7 @@ import { api } from '@/lib/api';
 import { addDays, afterMidnight, computeInsights, dayStays, isHotelBreak, startMinute } from '@/lib/insights';
 import { paths } from '@/lib/paths';
 import type { Coordinates } from '@/lib/places';
-import { formatKm, routeKm, shortestOrder, transitHint, withinWalk, type Leg } from '@/lib/route';
+import { formatKm, routeKm, shortestOrder, transitPaysOff, withinWalk, type Leg } from '@/lib/route';
 import { ACTIVITY_TYPES, dayOfMonth, formatMinutes, formatWeekdayShort, type Activity, type Stay, type TripHeader } from '@/lib/trip';
 import { useAction } from '@/lib/use-action';
 import { cn } from '@/lib/utils';
@@ -97,7 +97,7 @@ function TripMap({ trip, activities, stays }: { trip: TripHeader; activities: Ac
     const legHome = end ? walk.legs[(start ? 1 : 0) + coords.length - 1] : undefined;
     const totalKm = walk.legs.reduce((sum, l) => sum + l.km, 0);
     const totalMinutes = walk.legs.reduce((sum, l) => sum + l.minutes, 0);
-    const transitLegs = walk.legs.filter((l) => transitHint(l)).length;
+    const transitLegs = walk.legs.filter((l) => transitPaysOff(l)).length;
 
     // only sightseeing with a time can move: we swap their time slots.
     // Transfers and meals stay where they are (a dinner is not a morning visit).
@@ -316,9 +316,9 @@ function StayRow({ stay, label, divided = false, onGo }: { stay: Stay; label: st
 
 /** The stretch between two stops: time on foot and, when it's long, whether transit pays off. */
 function LegRow({ leg, from }: { leg: Leg; from?: string }) {
-    const transit = transitHint(leg);
+    const transit = transitPaysOff(leg);
     const about = leg.approximate ? 'circa ' : '';
-    const spoken = `${from ? `${from}: ` : ''}${about}${formatKm(leg.km)}, ${walkTime(leg.minutes)} a piedi${transit ? `; con i mezzi circa ${walkTime(transit.minutes)}` : ''}`;
+    const spoken = `${from ? `${from}: ` : ''}${about}${formatKm(leg.km)}, ${walkTime(leg.minutes)} a piedi${transit ? '; meglio i mezzi' : ''}`;
     return (
         <li className="flex items-stretch gap-3">
             <span className="flex w-7 shrink-0 justify-center" aria-hidden="true">
@@ -335,7 +335,7 @@ function LegRow({ leg, from }: { leg: Leg; from?: string }) {
                 {transit && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-indigo-soft px-2 py-0.5 font-bold text-indigo-deep">
                         <TrainFront className="size-3.5" />
-                        Meglio i mezzi · ~{walkTime(transit.minutes)}
+                        Meglio i mezzi
                     </span>
                 )}
             </span>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distanceKm, formatKm, routeKm, shortestOrder, straightLeg, transitHint, withinWalk } from './route';
+import { distanceKm, formatKm, routeKm, shortestOrder, straightLeg, transitPaysOff, withinWalk } from './route';
 
 const at = (latitude: number, longitude: number) => ({ latitude, longitude });
 
@@ -49,14 +49,11 @@ describe('route', () => {
 
     it('suggests transit only when it saves real time', () => {
         // 15 minutes on foot: just walk
-        expect(transitHint({ km: 1.1, minutes: 15 })).toBeNull();
+        expect(transitPaysOff({ km: 1.1, minutes: 15 })).toBe(false);
         // Shinjuku -> Ueno, ~2 hours on foot
-        const hint = transitHint({ km: 8.6, minutes: 114 });
-        expect(hint).not.toBeNull();
-        expect(hint!.minutes).toBeGreaterThan(20);
-        expect(hint!.minutes).toBeLessThan(45);
+        expect(transitPaysOff({ km: 8.6, minutes: 114 })).toBe(true);
         // a long but straight walk where waiting for a train would not pay off
-        expect(transitHint({ km: 2.2, minutes: 28 })).toBeNull();
+        expect(transitPaysOff({ km: 2.2, minutes: 28 })).toBe(false);
     });
 
     it('formats distances in Italian', () => {

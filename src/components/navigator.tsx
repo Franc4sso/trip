@@ -13,7 +13,7 @@ import {
     type NavStep,
 } from '@/lib/navigation';
 import type { Coordinates } from '@/lib/places';
-import { transitHint } from '@/lib/route';
+import { transitPaysOff } from '@/lib/route';
 import { formatMinutes } from '@/lib/trip';
 import { useIsDark } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -295,7 +295,7 @@ export function Navigator({ targets, start, date, onClose }: Props) {
         return Math.round((eta.getTime() - due.getTime()) / 60_000);
     })();
     const walkMinutes = route ? (route.length * route.pace) / 60 : 0;
-    const transit = route ? transitHint({ km: route.length / 1000, minutes: walkMinutes }) : null;
+    const transit = !!route && transitPaysOff({ km: route.length / 1000, minutes: walkMinutes });
     const next = targets[index + 1];
 
     const status = gps.error ?? (!gps.position ? 'Cerco la tua posizione…' : routeError ?? (!route ? 'Calcolo il percorso a piedi…' : null));
@@ -347,7 +347,7 @@ export function Navigator({ targets, start, date, onClose }: Props) {
                         >
                             <TrainFront className="size-5 shrink-0 text-indigo" aria-hidden="true" />
                             <span className="min-w-0 flex-1">
-                                A piedi {formatMinutes(Math.round(walkMinutes))}: con i mezzi <b>~{formatMinutes(Math.round(transit.minutes))}</b>
+                                A piedi {formatMinutes(Math.round(walkMinutes))}: <b>meglio i mezzi</b>, orari e linee su Google Maps
                             </span>
                             <span className="flex shrink-0 items-center gap-1 font-bold text-indigo">
                                 Mezzi

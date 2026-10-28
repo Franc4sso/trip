@@ -105,16 +105,16 @@ export function straightLeg(a: Coordinates, b: Coordinates): Leg {
     return { km, minutes: (km / WALK_KMH) * 60, approximate: true };
 }
 
-// Rough door-to-door model for a Japanese city: reaching the station and waiting,
-// then metro/train at its average speed including stops. Not a timetable.
+// Rough door-to-door model: reaching the station and waiting, then metro/train at its
+// average speed including stops. Not a timetable, so it only decides whether to suggest
+// transit: the time itself comes from Google Maps, which knows the real lines.
 const TRANSIT_OVERHEAD_MIN = 12;
 const TRANSIT_KMH = 25;
 
-/** Estimated time by metro/train, when it beats walking by enough to be worth it. */
-export function transitHint(leg: Pick<Leg, 'km' | 'minutes'>): { minutes: number } | null {
-    if (leg.minutes < 30) return null;
-    const minutes = TRANSIT_OVERHEAD_MIN + (leg.km / TRANSIT_KMH) * 60;
-    return leg.minutes - minutes >= 10 ? { minutes } : null;
+/** True when a stretch is long on foot and transit likely saves enough to be worth it. */
+export function transitPaysOff(leg: Pick<Leg, 'km' | 'minutes'>): boolean {
+    if (leg.minutes < 30) return false;
+    return leg.minutes - (TRANSIT_OVERHEAD_MIN + (leg.km / TRANSIT_KMH) * 60) >= 10;
 }
 
 export function formatKm(km: number): string {
